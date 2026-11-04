@@ -1,5 +1,11 @@
 // Static game data: merge chain and eras.
 
+// Fonts (self-hosted in assets/fonts): Orbitron for titles, scores and buttons; Exo 2 for small text.
+window.ERA_FONTS = {
+  title: "Orbitron, 'Arial Black', sans-serif",
+  body: "'Exo 2', Arial, sans-serif",
+};
+
 window.ERA_DATA = {
   items: ['Wheel', 'Cart', 'Carriage', 'Bicycle', 'Car', 'Plane', 'Rocket'],
 

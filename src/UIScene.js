@@ -1,7 +1,7 @@
 // UI scene: responsive layout, HUD, customer cards, pointer input, Customer Book and game over overlays.
 // Coordinates here are game pixels (device pixels); the Game scene's camera is fitted into layout.cap.
 
-const FONT = 'Arial Black, Arial, sans-serif';
+const FONT = ERA_FONTS.title;
 
 class UIScene extends Phaser.Scene {
   constructor() {
@@ -14,7 +14,7 @@ class UIScene extends Phaser.Scene {
     this.g = this.add.graphics();
 
     const txt = (origin) => this.add.text(0, 0, '', {
-      fontFamily: FONT, color: '#ffffff', stroke: '#241b3d', strokeThickness: 4,
+      fontFamily: FONT, fontStyle: '900', color: '#ffffff', stroke: '#241b3d', strokeThickness: 4,
     }).setOrigin(origin[0], origin[1]);
 
     this.titleText = txt([0.5, 0]).setText('ERA POP').setColor('#ffe066');
@@ -29,7 +29,7 @@ class UIScene extends Phaser.Scene {
     for (let i = 0; i < this.C.customers.maxSlots; i++) {
       this.cards.push({
         avatar: this.add.image(0, 0, 'cust_0_0').setVisible(false).setDepth(1), // below order bubble
-        name: this.add.text(0, 0, '', { fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5, 0).setDepth(2),
+        name: this.add.text(0, 0, '', { fontFamily: ERA_FONTS.body, fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5, 0).setDepth(2),
         order: this.add.image(0, 0, 'bubble0').setVisible(false).setDepth(2),
         float: txt([0.5, 0.5]).setVisible(false).setDepth(3),
         rect: null,
@@ -87,6 +87,7 @@ class UIScene extends Phaser.Scene {
       this.scoreText.setFontSize(fs).setPosition(pad * 2, hudH * 0.33);
       this.bestText.setFontSize(Math.round(fs * 0.7)).setPosition(pad * 2, hudH * 0.72);
       this.nextLabel.setFontSize(Math.round(fs * 0.7)).setPosition(W * 0.5 - hudH * 0.55, hudH * 0.5);
+      L.scoreMaxW = this.nextLabel.x - this.nextLabel.width / 2 - pad * 4;
       L.next = { x: W * 0.5 + hudH * 0.15, y: hudH * 0.5, r: hudH * 0.36 };
       L.bookBtn = { x: W - pad * 2 - W * 0.26, y: hudH * 0.18, w: W * 0.26, h: hudH * 0.64 };
       this.bookText.setFontSize(Math.round(fs * 0.7));
@@ -103,6 +104,7 @@ class UIScene extends Phaser.Scene {
       this.titleText.setVisible(true).setFontSize(Math.round(fs * 1.4)).setPosition(side / 2, H * 0.05);
       this.scoreText.setFontSize(fs).setPosition(side * 0.12, H * 0.24);
       this.bestText.setFontSize(Math.round(fs * 0.7)).setPosition(side * 0.12, H * 0.31);
+      L.scoreMaxW = side * 0.8;
       this.nextLabel.setFontSize(Math.round(fs * 0.7)).setPosition(side / 2, H * 0.42);
       L.next = { x: side / 2, y: H * 0.53, r: Math.min(side * 0.18, H * 0.08) };
       L.bookBtn = { x: side * 0.12, y: H * 0.7, w: side * 0.76, h: Math.min(H * 0.1, side * 0.3) };
@@ -136,8 +138,11 @@ class UIScene extends Phaser.Scene {
     // HUD
     g.fillStyle(0x1a1430, 0.85).fillRect(L.hud.x, L.hud.y, L.hud.w, L.hud.h);
     if (!L.portrait) g.fillStyle(0x1a1430, 0.85).fillRect(L.W - L.hud.w, 0, L.hud.w, L.H);
+    // Shrink long scores to fit (Orbitron is wide).
     this.scoreText.setText('SCORE ' + G.score);
+    this.scoreText.setScale(Math.min(1, L.scoreMaxW / this.scoreText.width));
     this.bestText.setText('BEST ' + Math.max(G.best, G.score));
+    this.bestText.setScale(Math.min(1, L.scoreMaxW / this.bestText.width));
     this.nextImg.setTexture('bubble' + G.nextTier);
     const nr = this.C.bubbleRadius[G.nextTier] * EraDraw.TEX_SCALE;
     this.nextImg.setScale(L.next.r / nr);
@@ -383,7 +388,7 @@ class UIScene extends Phaser.Scene {
 
   ovText(str, x, y, size, color, origin) {
     const t = this.add.text(x, y, str, {
-      fontFamily: FONT, fontSize: Math.round(size) + 'px', color: color || '#ffffff',
+      fontFamily: FONT, fontStyle: '900', fontSize: Math.round(size) + 'px', color: color || '#ffffff',
       stroke: '#241b3d', strokeThickness: Math.max(2, size * 0.15), align: 'center',
     }).setOrigin(origin ? origin[0] : 0.5, origin ? origin[1] : 0.5).setDepth(101);
     this.overlay.objs.push(t);
@@ -504,7 +509,7 @@ class UIScene extends Phaser.Scene {
         .setDisplaySize(w * 0.76, w * 0.76).setDepth(101);
       this.overlay.objs.push(pic);
       const t = this.ovText(found ? ERA_DATA.customerName(l, j) : '???', x + w / 2, y + w * 0.9, fs, found ? '#ffffff' : '#6d6590', [0.5, 0]);
-      t.setStroke('#241b3d', 0).setWordWrapWidth(w * 0.94);
+      t.setStroke('#241b3d', 0).setFontFamily(ERA_FONTS.body).setFontStyle('bold').setWordWrapWidth(w * 0.94);
     });
   }
 }

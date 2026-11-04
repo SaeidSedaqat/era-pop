@@ -17,7 +17,7 @@ class GameScene extends Phaser.Scene {
     const bw = Math.min(W * 0.6, 600), bh = Math.max(10, Math.min(W, H) * 0.025);
     const x = (W - bw) / 2, y = H / 2;
     const title = this.add.text(W / 2, y - bh * 3, 'ERA POP', {
-      fontFamily: 'Arial Black, Arial, sans-serif', fontSize: Math.round(Math.min(W, H) * 0.08) + 'px',
+      fontFamily: ERA_FONTS.title, fontStyle: '900', fontSize: Math.round(Math.min(W, H) * 0.08) + 'px',
       color: '#ffe066', stroke: '#241b3d', strokeThickness: 6,
     }).setOrigin(0.5, 1);
     const g = this.add.graphics();
@@ -331,7 +331,7 @@ class GameScene extends Phaser.Scene {
   popText(x, y, str, color, scale) {
     const s = scale || 1;
     const txt = this.add.text(x, y, str, {
-      fontFamily: 'Arial Black, Arial, sans-serif', fontSize: Math.round(26 * s) + 'px', color,
+      fontFamily: ERA_FONTS.title, fontStyle: '900', fontSize: Math.round(26 * s) + 'px', color,
       stroke: '#241b3d', strokeThickness: 6, resolution: 3,
     }).setOrigin(0.5);
     this.tweens.add({ targets: txt, y: y - 60, alpha: 0, duration: 900, ease: 'Cubic.Out', onComplete: () => txt.destroy() });
