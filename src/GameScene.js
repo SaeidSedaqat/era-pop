@@ -103,6 +103,8 @@ class GameScene extends Phaser.Scene {
     this.elapsed = 0;
     this.gameOver = false;
     this.aimX = cap.width / 2;
+    // First run: a mandatory tutorial (drop → merge → serve → danger line) before the real game starts.
+    this.tutorial = EraStorage.tutorialDone() ? null : { step: 'drop' };
     this.currentTier = this.randomDropTier();
     this.nextTier = this.randomDropTier();
     this.canDrop = true;
@@ -116,6 +118,7 @@ class GameScene extends Phaser.Scene {
     this.storm = null;
     this.nextStormAt = C.storms.firstAtSec;
     this.revivesUsed = 0;
+    this.ordersServed = 0;
     this.tickAt = 0;
 
     this.matter.world.on('collisionstart', this.onCollide, this);
@@ -194,7 +197,8 @@ class GameScene extends Phaser.Scene {
     const W = this.C.capsule.width;
     const y = this.C.capsule.dangerLineY;
     g.clear();
-    const flash = this.dangerActive && Math.floor(time / 200) % 2 === 0;
+    const show = this.dangerActive || (this.tutorial && this.tutorial.step === 'line');
+    const flash = show && Math.floor(time / 200) % 2 === 0;
     g.lineStyle(flash ? 5 : 3, flash ? 0xff3355 : 0xff8899, flash ? 0.95 : 0.4);
     for (let x = 0; x < W; x += 28) g.lineBetween(x, y, Math.min(W, x + 16), y);
   }
@@ -216,6 +220,7 @@ class GameScene extends Phaser.Scene {
 
   // ---------- Bubbles ----------
   randomDropTier() {
+    if (this.tutorial) return 0; // only Wheels in the tutorial, so the first merge is easy
     const w = this.rampValue(this.C.drop.spawnWeightRamp, this.elapsed || 0).weights;
     const total = w.reduce((a, b) => a + b, 0);
     let r = Math.random() * total;
@@ -269,6 +274,8 @@ class GameScene extends Phaser.Scene {
 
   dropBubble() {
     if (this.gameOver) return;
+    const T = this.tutorial;
+    if (T && T.step !== 'drop' && T.step !== 'merge') return; // later tutorial steps don't drop
     if (!this.canDrop) {
       this.pendingDrop = true; // tap during the cooldown: drop as soon as the next bubble is ready
       return;
@@ -278,6 +285,7 @@ class GameScene extends Phaser.Scene {
     const x = Phaser.Math.Clamp(this.aimX, r, cap.width - r);
     this.spawnBubble(this.currentTier, x, cap.dropY, false);
     EraAudio.play('drop');
+    if (T && T.step === 'drop') T.step = 'merge';
     this.canDrop = false;
     this.time.delayedCall(this.C.drop.cooldownMs, () => {
       this.currentTier = this.nextTier;
@@ -371,6 +379,43 @@ class GameScene extends Phaser.Scene {
         this.burst(x, y);
       }
     }
+    // Tutorial: after the first merge, a customer walks in wanting what was just made.
+    if (this.tutorial && this.tutorial.step === 'merge') this.time.delayedCall(500, () => this.tutorialCustomer());
+  }
+
+  // ---------- First-run tutorial ----------
+  tutorialCustomer() {
+    const T = this.tutorial;
+    if (!T || T.step !== 'merge') return;
+    T.step = 'serve';
+    this.tutorialRetarget();
+  }
+
+  // The tutorial customer always orders an item that is in the capsule (the biggest one).
+  // Called again if that bubble merges away before it's served.
+  tutorialRetarget() {
+    let tier = 0;
+    for (const b of this.bubbles) if (!b.dead) tier = Math.max(tier, b.tier);
+    const c = this.customers[0];
+    if (c && c.state === 'waiting' && c.tier === tier) return;
+    const total = 30; // the tutorial order never runs out (its timer is frozen)
+    this.customers[0] = {
+      look: tier, job: tier, tier, name: ERA_DATA.customerName(tier, tier), mult: 1, gentle: true,
+      line: ERA_DATA.orderLine(tier, tier),
+      timeLeft: total, timeTotal: total, state: 'waiting', age: c ? c.age : 0, leaveT: 0, result: null, points: 0, tip: 0,
+    };
+  }
+
+  finishTutorial() {
+    if (!this.tutorial) return;
+    this.tutorial = null;
+    EraStorage.setTutorialDone();
+    this.elapsed = 0;
+    this.lastMergeAt = -1e9;
+    this.score = 0;          // the real run starts from zero
+    this.ordersServed = 0;
+    this.spawnTimerMs = this.C.customers.firstCustomerDelayMs;
+    this.nextTier = this.randomDropTier();
   }
 
   popText(x, y, str, color, scale) {
@@ -437,13 +482,6 @@ class GameScene extends Phaser.Scene {
     return Math.min(CC.maxSlots, this.rampValue(CC.slotRamp, this.elapsed).slots);
   }
 
-  spawnInterval() {
-    const CC = this.C.customers;
-    const k = Phaser.Math.Clamp(this.elapsed / CC.spawnIntervalRampSec, 0, 1);
-    const ms = CC.spawnIntervalStartMs + (CC.spawnIntervalEndMs - CC.spawnIntervalStartMs) * k;
-    return this.storm && this.storm.type === 'rush' ? ms * this.C.storms.rushSpawnFactor : ms;
-  }
-
   // A Rocket order is only fair when a Rocket exists or enough Planes to make one.
   rocketReachable() {
     let planes = 0;
@@ -459,6 +497,13 @@ class GameScene extends Phaser.Scene {
     const CC = this.C.customers;
     const ramp = this.rampValue(CC.orderTierRamp, this.elapsed);
     let job = Phaser.Math.Between(ramp.min, ramp.max);
+    // Prefer an item that isn't already in the capsule (allowing one size up), so every order is something to build.
+    const have = new Set(this.bubbles.filter((b) => !b.dead).map((b) => b.tier));
+    if (have.has(job)) {
+      const options = [];
+      for (let t = ramp.min; t <= Math.min(6, ramp.max + 1); t++) if (!have.has(t)) options.push(t);
+      if (options.length) job = Phaser.Utils.Array.GetRandom(options);
+    }
     if (job === 6 && !this.rocketReachable()) job = Phaser.Math.Between(Math.min(ramp.min, 5), 5);
     let look = job;
     if (this.storm && this.storm.type === 'era') look = this.storm.look;
@@ -483,7 +528,7 @@ class GameScene extends Phaser.Scene {
     const mult = !this.storm ? 1 : this.storm.type === 'era' ? ST.eraOrderMultiplier : this.storm.type === 'rush' ? ST.rushOrderMultiplier : 1;
     this.customersSpawned++;
     this.customers[slot] = {
-      look, job, tier: job, name: ERA_DATA.customerName(look, job), mult,
+      look, job, tier: job, name: ERA_DATA.customerName(look, job), mult, line: ERA_DATA.orderLine(look, job),
       gentle: this.customersSpawned <= CC.gentleCustomers,
       timeLeft: total, timeTotal: total, state: 'waiting', age: 0, leaveT: 0, result: null, points: 0, tip: 0,
     };
@@ -512,14 +557,15 @@ class GameScene extends Phaser.Scene {
 
   updateCustomers(dt) {
     const CC = this.C.customers;
-    this.spawnTimerMs -= dt * 1000;
-    if (this.spawnTimerMs <= 0) {
+    const tut = !!this.tutorial; // tutorial: no arrivals and no order timers
+    if (!tut) this.spawnTimerMs -= dt * 1000;
+    if (!tut && this.spawnTimerMs <= 0) {
       const open = this.openSlots();
       let free = -1;
       for (let i = 0; i < open; i++) if (!this.customers[i]) { free = i; break; }
       if (free >= 0) {
         this.spawnCustomer(free);
-        this.spawnTimerMs = this.spawnInterval();
+        this.spawnTimerMs = CC.retryWhenFullMs;
       } else {
         this.spawnTimerMs = CC.retryWhenFullMs;
       }
@@ -529,6 +575,7 @@ class GameScene extends Phaser.Scene {
       if (!c) continue;
       c.age += dt;
       if (c.state === 'waiting') {
+        if (tut) continue;
         c.timeLeft -= dt;
         if (c.timeLeft <= 0) {
           c.timeLeft = 0;
@@ -536,12 +583,18 @@ class GameScene extends Phaser.Scene {
           this.addScore(-pen);
           c.state = 'leaving';
           c.result = 'timeout';
+          c.line = ERA_DATA.reactLine(c.look, false);
           c.points = -pen;
           EraAudio.play('timeout');
         }
       } else if (c.state === 'leaving') {
         c.leaveT += dt;
-        if (c.leaveT >= CC.leaveSec) this.customers[i] = null;
+        if (c.leaveT >= CC.leaveSec) {
+          this.customers[i] = null;
+          // Short break before the next customer walks in (shorter during a rush hour).
+          const rush = this.storm && this.storm.type === 'rush' ? this.C.storms.rushSpawnFactor : 1;
+          this.spawnTimerMs = CC.betweenOrdersMs * rush;
+        }
       }
     }
   }
@@ -563,16 +616,25 @@ class GameScene extends Phaser.Scene {
 
     this.removeBubble(b); // remaining bubbles fall into the freed space
     const S = this.C.scoring;
-    const bonus = Math.round(S.orderBonus[c.tier] * c.mult);
+    const bonus = Math.round(S.orderBonus[c.tier] * c.mult * this.orderMultiplier());
     const tip = c.timeLeft >= c.timeTotal * (1 - S.tip.windowFraction) ? Math.round(bonus * S.tip.rate) : 0;
     this.addScore(bonus + tip);
     c.state = 'leaving';
     c.result = 'served';
+    c.line = ERA_DATA.reactLine(c.look, true);
+    this.ordersServed++;
     c.points = bonus + tip;
     c.tip = tip;
     EraAudio.play('serve');
     const isNew = c.look !== c.job && EraStorage.addToBook(c.look, c.job);
+    if (this.tutorial && this.tutorial.step === 'serve') this.tutorial.step = 'line';
     return { ok: true, slot, isNew, name: c.name };
+  }
+
+  // Order bonuses grow with every order served this run.
+  orderMultiplier() {
+    const OG = this.C.scoring.orderGrowth;
+    return Math.min(OG.max, 1 + OG.perOrder * this.ordersServed);
   }
 
   addScore(n) {
@@ -654,7 +716,14 @@ class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    if (!this.gameOver) {
+    if (this.tutorial) {
+      // Storms, customer arrivals and the lose check wait until the tutorial is done; the clock restarts after it.
+      const dt = Math.min(delta, 100) / 1000;
+      this.elapsed += dt;
+      this.processMerges();
+      this.updateCustomers(dt);
+      if (this.tutorial.step === 'serve') this.tutorialRetarget();
+    } else if (!this.gameOver) {
       const dt = Math.min(delta, 100) / 1000;
       this.elapsed += dt;
       this.updateStorm();

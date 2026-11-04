@@ -56,14 +56,23 @@ const ICONS = {
       g.lineBetween(cx - s * 0.34, cy + s * k, cx - s * 0.1, cy + s * k).lineBetween(cx + s * 0.1, cy + s * k, cx + s * 0.34, cy + s * k);
     }
   },
+  // Circular arrow with a gap on the left; the head sits at the gap's lower end and points up into it.
   restart(g, cx, cy, s) {
     const r = s * 0.3, lw = Math.max(2, s * 0.11);
+    const a0 = -Math.PI * 0.8, a1 = Math.PI * 0.9;     // arc runs clockwise from a0 to a1, leaving a gap
     g.lineStyle(lw, 0xffffff, 1);
     g.beginPath();
-    g.arc(cx, cy, r, -Math.PI * 0.35, Math.PI * 1.45);
+    g.arc(cx, cy, r, a0, a1);
     g.strokePath();
-    const ax = cx + r * Math.cos(-Math.PI * 0.35), ay = cy + r * Math.sin(-Math.PI * 0.35);
-    g.fillStyle(0xffffff, 1).fillTriangle(ax - s * 0.2, ay - s * 0.06, ax + s * 0.06, ay - s * 0.2, ax + s * 0.08, ay + s * 0.12);
+    // Head at the a1 end, pointing along the arc (clockwise).
+    const px = cx + r * Math.cos(a1), py = cy + r * Math.sin(a1);
+    const dx = -Math.sin(a1), dy = Math.cos(a1);        // clockwise tangent
+    const ox = Math.cos(a1), oy = Math.sin(a1);         // outward
+    const hl = s * 0.24, hw = s * 0.19;
+    g.fillStyle(0xffffff, 1).fillTriangle(
+      px + dx * hl, py + dy * hl,
+      px + ox * hw, py + oy * hw,
+      px - ox * hw, py - oy * hw);
   },
   cross(g, cx, cy, s) {
     g.lineStyle(Math.max(3, s * 0.1), 0xff4f6a, 1).lineBetween(cx - s * 0.42, cy - s * 0.42, cx + s * 0.42, cy + s * 0.42);
@@ -98,6 +107,8 @@ class UIScene extends Phaser.Scene {
       this.cards.push({
         avatar: this.add.image(0, 0, 'cust_0_0').setVisible(false).setDepth(1), // below order bubble
         name: this.add.text(0, 0, '', { fontFamily: ERA_FONTS.body, fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5, 0).setDepth(2),
+        speech: this.add.text(0, 0, '', { fontFamily: ERA_FONTS.body, fontStyle: 'bold', color: '#241b3d', align: 'center' })
+          .setOrigin(0.5, 0).setDepth(2).setVisible(false),
         order: this.add.image(0, 0, 'bubble0').setVisible(false).setDepth(2),
         float: txt([0.5, 0.5]).setVisible(false).setDepth(3),
         rect: null,
@@ -107,6 +118,9 @@ class UIScene extends Phaser.Scene {
     this.toastText = txt([0.5, 0.5]).setDepth(60).setVisible(false);
     this.stormText = txt([0.5, 0]).setDepth(55).setVisible(false).setColor('#ffe066');
     this.toastUntil = 0;
+    this.tutText = this.add.text(0, 0, '', {
+      fontFamily: ERA_FONTS.body, fontStyle: 'bold', color: '#ffffff', align: 'center', lineSpacing: 4,
+    }).setOrigin(0.5, 0.5).setDepth(58).setVisible(false);
 
     this.overlay = null;
     this.press = null;
@@ -167,7 +181,7 @@ class UIScene extends Phaser.Scene {
       L.pad = pad;
       L.hud = { x: 0, y: 0, w: side, h: H };
       L.cap = { x: side, y: pad, w: W - side * 2, h: H - pad * 2 };
-      const ch = (H - pad * 2 - (n - 1) * pad) / n;
+      const ch = Math.min((H - pad * 2 - (n - 1) * pad) / n, (side - pad * 2) * 1.8);
       for (let i = 0; i < n; i++) L.cards.push({ x: W - side + pad, y: pad + i * (ch + pad), w: side - pad * 2, h: ch });
       const fs = Math.round(Math.min(side * 0.11, H * 0.05));
       this.titleText.setVisible(true).setFontSize(Math.round(fs * 1.4)).setPosition(side / 2, H * 0.05);
@@ -190,6 +204,8 @@ class UIScene extends Phaser.Scene {
       .setWordWrapWidth(L.cap.w * 0.95).setAlign('center');
     this.stormText.setFontSize(Math.round(Math.min(W, H) * 0.03)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.2)
       .setWordWrapWidth(L.cap.w * 0.95).setAlign('center');
+    this.tutText.setFontSize(Math.round(Math.min(W, H) * 0.036)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.45)
+      .setWordWrapWidth(L.cap.w * 0.8);
     this.L = L;
     this.G.setScreenRect(L.cap);
 
@@ -246,9 +262,54 @@ class UIScene extends Phaser.Scene {
       else this.toastText.setAlpha(Math.min(1, left / 300));
     }
 
+    this.drawTutorial();
+
     if (G.gameOver && !this.overlay) {
       this.cancelPress();
       this.openOverlay('gameover');
+    }
+  }
+
+  // First-run tutorial: a hint box in the capsule plus a pointer for the current step.
+  drawTutorial() {
+    const G = this.G, L = this.L, T = G.tutorial;
+    if (!T || this.overlay || this.ad) { this.tutText.setVisible(false); return; }
+    const g = this.g, now = this.time.now;
+    const cust = G.customers[0];
+    const item = cust ? ERA_DATA.items[cust.tier] : '';
+    const msg = {
+      drop: 'Tap inside the capsule\nto drop a bubble',
+      merge: 'Drop another Wheel on it!\nTwo of the same merge\ninto the next item',
+      serve: 'A customer wants a ' + item + '!\nDrag it onto their card',
+      line: 'Keep bubbles below\nthe red line, or the\ncapsule fills up!\n\nTap to start',
+    }[T.step];
+    const t = this.tutText.setText(msg).setVisible(true);
+    const pad = t.height * 0.18;
+    const box = { x: t.x - t.width / 2 - pad, y: t.y - t.height / 2 - pad, w: t.width + pad * 2, h: t.height + pad * 2 };
+    g.fillStyle(0x1a1430, 0.88).fillRoundedRect(box.x, box.y, box.w, box.h, pad);
+    g.lineStyle(Math.max(2, pad * 0.18), 0xffe066, 0.6 + 0.4 * Math.sin(now * 0.006)).strokeRoundedRect(box.x, box.y, box.w, box.h, pad);
+
+    const k = (now % 1100) / 1100;
+    if (T.step === 'drop' || T.step === 'merge') {
+      // Expanding tap rings just under the drop point.
+      const p = G.toScreen(this.C.capsule.width / 2, this.C.capsule.height * 0.2);
+      const r = Math.min(L.cap.w, L.cap.h) * 0.05;
+      g.fillStyle(0xffffff, 0.85).fillCircle(p.x, p.y, r * 0.45);
+      g.lineStyle(Math.max(2, r * 0.15), 0xffffff, 1 - k).strokeCircle(p.x, p.y, r * (0.6 + k * 1.2));
+    } else if (T.step === 'serve' && cust && cust.state === 'waiting' && !(this.press && this.press.dragging)) {
+      // Moving dots from the ordered bubble to the customer's card.
+      let b = null;
+      for (const x of G.bubbles) if (!x.dead && x.tier === cust.tier && (!b || x.body.position.y < b.body.position.y)) b = x;
+      const r = L.cards[0];
+      if (b && r) {
+        const a = G.toScreen(b.body.position.x, b.body.position.y);
+        const z = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+        const n = 8, dr = Math.max(3, Math.min(L.W, L.H) * 0.007);
+        for (let i = 0; i < n; i++) {
+          const f = (i / n + k) % 1;
+          g.fillStyle(0xffe066, 0.3 + 0.7 * f).fillCircle(a.x + (z.x - a.x) * f, a.y + (z.y - a.y) * f, dr);
+        }
+      }
     }
   }
 
@@ -270,6 +331,7 @@ class UIScene extends Phaser.Scene {
       g.fillStyle(isOpen ? 0x2f2552 : 0x1c1733, isOpen ? 0.9 : 0.6).fillRoundedRect(r.x, r.y, r.w, r.h, rad);
       card.avatar.setVisible(false);
       card.name.setVisible(false);
+      card.speech.setVisible(false);
       card.order.setVisible(false);
       card.float.setVisible(false);
       return;
@@ -305,15 +367,15 @@ class UIScene extends Phaser.Scene {
       ox = ax + ar * 0.85; oy = ay + ar * 0.6;
       const left = ox + or + pad * 0.5;
       nx = (left + r.x + r.w - pad) / 2; nw = r.x + r.w - pad - left;
-      fs = Math.max(9, Math.min(r.h * 0.15, nw * 0.13));
-      ny = r.y + pad;
+      fs = Math.max(9, Math.min(r.h * 0.12, nw * 0.09));
+      ny = r.y + pad * 0.8;
     } else {
       ar = Math.min(r.w * 0.38, r.h * 0.26);
       ax = r.x + r.w / 2 - r.w * 0.06; ay = r.y + pad + ar;
       or = ar * 0.58;
       ox = r.x + r.w - pad - or * 0.8; oy = ay + ar * 0.65;
       nx = r.x + r.w / 2; nw = r.w - pad;
-      fs = Math.max(8, Math.min(r.w * 0.13, r.h * 0.075));
+      fs = Math.max(8, Math.min(r.w * 0.1, r.h * 0.06));
       ny = ay + ar + pad * 0.6;
     }
 
@@ -324,11 +386,27 @@ class UIScene extends Phaser.Scene {
       .setScale(or / (this.C.bubbleRadius[c.tier] * EraDraw.TEX_SCALE)).setAlpha(a);
     card.name.setVisible(true).setText(c.name).setFontSize(Math.round(fs)).setWordWrapWidth(nw)
       .setPosition(nx, ny).setAlpha(a);
-    if (horizontal) card.name.setY(r.y + r.h * 0.5 - card.name.height / 2 - r.h * 0.08);
 
     // Timer bar
-    const bh = Math.max(4, r.h * (horizontal ? 0.1 : 0.06));
+    const bh = Math.max(4, r.h * (horizontal ? 0.08 : 0.04));
     const bx = r.x + pad, by = r.y + r.h - pad - bh, bw = r.w - pad * 2;
+
+    // Speech bubble under the name: the order line, then their reaction when they leave.
+    const sx0 = horizontal ? nx - nw / 2 : r.x + pad, sx1 = horizontal ? nx + nw / 2 : r.x + r.w - pad;
+    const sy0 = card.name.y + card.name.height + pad * 0.5, sy1 = by - pad * 0.6;
+    const sp = pad * 0.45;
+    let sfs = fs * (horizontal ? 0.85 : 0.95);
+    card.speech.setVisible(true).setText(c.line || '').setWordWrapWidth(sx1 - sx0 - sp * 2).setAlpha(a);
+    for (let k = 0; k < 6; k++) {
+      card.speech.setFontSize(Math.max(8, Math.round(sfs)));
+      if (card.speech.height + sp * 2 <= sy1 - sy0 || sfs <= 8) break;
+      sfs *= 0.88;
+    }
+    const sh = card.speech.height + sp * 2;
+    g.fillStyle(0xffffff, 0.95 * a).fillRoundedRect(sx0, sy0, sx1 - sx0, sh, sp * 1.5);
+    if (horizontal) g.fillTriangle(sx0 + 1, sy0 + sp, sx0 + 1, sy0 + sp * 3, sx0 - sp * 1.6, sy0 + sp * 0.6);
+    else g.fillTriangle(sx0 + sp * 2, sy0 + 1, sx0 + sp * 4, sy0 + 1, sx0 + sp * 2.6, sy0 - sp * 1.4);
+    card.speech.setPosition((sx0 + sx1) / 2, sy0 + sp);
     const frac = Phaser.Math.Clamp(c.timeLeft / c.timeTotal, 0, 1);
     let col = frac > 0.5 ? 0x62c97a : frac > 0.25 ? 0xf2c14e : 0xff4f6a;
     if (frac <= 0.25 && c.state === 'waiting' && Math.floor(this.time.now / 250) % 2 === 0) col = 0xffffff;
@@ -368,6 +446,8 @@ class UIScene extends Phaser.Scene {
       return;
     }
     const G = this.G;
+    // Last tutorial step: any tap starts the real game.
+    if (G.tutorial && G.tutorial.step === 'line') { EraAudio.play('click'); G.finishTutorial(); return; }
     if (G.gameOver || !this.inRect(this.L.cap, p.x, p.y)) return;
     // A press on a bubble is a tap (aim + drop) unless it moves far enough to become a drag-to-serve.
     const w = G.toWorld(p.x, p.y);

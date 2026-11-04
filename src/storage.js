@@ -4,6 +4,7 @@ window.EraStorage = (function () {
   const BOOK_KEY = 'erapop.book.v1';
   const BEST_KEY = 'erapop.best.v1';
   const AUDIO_KEY = 'erapop.audio.v1';
+  const TUTORIAL_KEY = 'erapop.tutorial.v1';
 
   function read(key, fallback) {
     try {
@@ -33,6 +34,9 @@ window.EraStorage = (function () {
       return { music: !a || a.music !== false, sfx: !a || a.sfx !== false };
     },
     setAudio(a) { write(AUDIO_KEY, { music: !!a.music, sfx: !!a.sfx }); },
+    // The first-run tutorial is shown until it has been finished once.
+    tutorialDone() { return read(TUTORIAL_KEY, false) === true; },
+    setTutorialDone() { write(TUTORIAL_KEY, true); },
     // Returns true if this hybrid is new to the book.
     addToBook(look, job) {
       const k = look + '-' + job;

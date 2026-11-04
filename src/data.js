@@ -31,6 +31,34 @@ window.ERA_DATA = {
       bg: 0x1d2b4f, main: 0xdfe6ee, accent: 0x22e3ff, pattern: 'circuit' },
   ],
 
+  // What a customer says, in the voice of their look's era. {a} becomes "a Bicycle", "a Car"...
+  // order: one is picked when they walk in. thanks / angry: their reaction when served / when they give up.
+  voices: [
+    { order: ['Ug need {a}. Ug feet very tired.', 'Give Ug {a}! Ug trade you nice rock.', 'Mammoth too slow. Ug want {a}!'],
+      thanks: 'Ug happy! Ug name it Rock.', angry: 'Ug walk. Ug sad.' },
+    { order: ['I need {a} before the Nile floods again!', 'The pharaoh demands {a}. Also a snack.', 'My camel quit. Please, {a}!'],
+      thanks: 'Blessings of the sun upon you!', angry: 'I will carve rude hieroglyphs about this.' },
+    { order: ['Hark! I require {a} for my quest!', 'My horse hath fled. Fetch me {a}, good shopkeep!', 'The dragon awaits. I need {a}, posthaste!'],
+      thanks: 'Huzzah! Thou art most noble!', angry: 'Fie! I shall walk, like a peasant!' },
+    { order: ['Good day. One would like {a}, if it is no bother.', 'I cannot be late for tea. I need {a}, quickly!', 'Splendid shop! I shall take {a}, wrapped in velvet.'],
+      thanks: 'Jolly good! A shilling for your trouble.', angry: 'How dreadfully slow. Good day, sir!' },
+    { order: ['Hey daddy-o, hook me up with {a}!', 'I need {a}, man, the sock hop starts in five!', 'Make it {a} with flames on it. Crazy!'],
+      thanks: 'Real gone, man! You\'re the most!', angry: 'Bummer, man. I\'m outta here.' },
+    { order: ['Roger that! Requesting {a}, over!', 'Wind\'s perfect today. Got {a} for me?', 'Mayday, mayday! I need {a}!'],
+      thanks: 'Tally-ho! Smooth landing!', angry: 'Out of fuel and patience. Over and out.' },
+    { order: ['Greetings, past human. Requesting {a}.', 'My jetpack is charging. I will take {a} meanwhile.', 'In my time {a} is a museum piece. I need one!'],
+      thanks: 'Transaction complete. Five stars!', angry: 'Ugh. Back to the future, then.' },
+  ],
+
+  orderLine(look, job) {
+    const lines = this.voices[look].order;
+    return lines[Math.floor(Math.random() * lines.length)].replace('{a}', 'a ' + this.items[job]);
+  },
+
+  reactLine(look, served) {
+    return served ? this.voices[look].thanks : this.voices[look].angry;
+  },
+
   // One funny story per hybrid customer, keyed 'look-job'. Shown when a collected card is tapped in the Book.
   stories: {
     '0-1': 'Ug planted rocks for three seasons, waiting for a rock tree. When a carrot finally popped up by accident, he named it Kevin and refused to eat it.',
