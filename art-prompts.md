@@ -133,3 +133,32 @@ Then add that sheet's list below.
 - Keep the background pure white. The game removes near-white pixels that touch the background, so every character needs its dark outline.
 - Check the order before saving: the era's original first, then the six hybrids in job order (Caveman, Farmer, Knight, Gentleman, Greaser, Pilot, Astronaut, skipping the sheet's own job).
 - If a figure comes out touching its neighbor, regenerate. The slicer needs a white gap between all 7.
+
+---
+
+# Items: one sheet (`assets/sheets/items.jpg`)
+
+All 8 come from a single image, saved over `assets/sheets/items.jpg`. The game slices it into 2 rows of 4, in reading order: the empty bubble, then the 7 items by tier. No code change is needed. Any size works; 3:2 (for example 1536×1024) is ideal.
+
+> A sprite sheet of 8 game item icons for a chunky mobile merge game, in a bold cartoon style: thick dark outlines, rich cel shading with soft highlights, saturated colors, toy-like proportions, three-quarter view. Pure white background, no ground shadows, no text, no labels, no numbers.
+>
+> Layout: exactly 2 rows of 4 icons, evenly spaced on a wide 3:2 canvas, every icon about the same size, with clear white space between them. No icon touches another or the edge.
+>
+> Each icon is compact and rounded so it fits inside a circle. Each one should look bigger and fancier than the one before it.
+>
+> Top row, left to right:
+> 1. An empty glossy soap bubble: a perfect circle, pale and almost colorless with a light blue tint, a big curved white shine at the top left, nothing inside.
+> 2. A chunky prehistoric stone wheel with a round hole in the middle, chipped edges, cracks and a little moss.
+> 3. A small, stubby wooden hand cart with plank sides, one stone wheel, rope tied around it and straw inside.
+> 4. A royal carriage: a round purple body with gold trim, a small gold crown on top, curtained windows and four spoked wheels, compact and tall.
+>
+> Bottom row, left to right:
+> 5. A Victorian penny-farthing bicycle: a huge front wheel, a tiny back wheel, a red frame, a brass bell and a leather seat.
+> 6. A cute, bubbly 1950s car in teal with lots of chrome, white-wall tires, round headlights and tail fins.
+> 7. A 1920s biplane with a red body and yellow wings and a wooden propeller, seen from the front at an angle so it isn't too wide.
+> 8. A classic retro rocket in white and red, with fins, a round porthole window and a bright orange flame, tilted slightly.
+
+## Tips for items
+
+- If any two items touch, regenerate: the slicer needs white gaps between them.
+- The bubble is tinted a different color per tier in the game, so keep it pale and neutral.
