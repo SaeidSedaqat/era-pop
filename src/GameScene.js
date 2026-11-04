@@ -715,9 +715,9 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  // ---------- Rewarded ad results ----------
+  // ---------- Revive ----------
   canRevive() {
-    return this.gameOver && this.revivesUsed < this.C.ads.revivesPerRun;
+    return this.gameOver && this.revivesUsed < this.C.revive.perRun;
   }
 
   // Clear the top of the capsule and carry on.
@@ -730,7 +730,7 @@ class GameScene extends Phaser.Scene {
       this.spawnTimerMs = this.C.customers.betweenOrdersMs;
       this.failedSlot = -1;
     }
-    const limit = this.dangerY + this.C.ads.reviveClearDepth;
+    const limit = this.dangerY + this.C.revive.clearDepth;
     for (const b of this.bubbles.slice()) {
       if (b.body.position.y - b.r < limit) {
         this.fx('fx_puff', b.body.position.x, b.body.position.y, b.r * 2.6, 500);

@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.244',
+  version: '0.1.254',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -119,12 +119,10 @@ window.ERA_POP_CONFIG = {
     dangerTickMs: 500,           // tick while a bubble is above the danger line
   },
 
-  // ---- Ads (placeholders only: no ad network, just a countdown screen) ----
-  ads: {
-    durationSec: 3,              // length of every placeholder ad
-    interstitialEveryGames: 1,   // show an interstitial before every Nth "Play again"
-    revivesPerRun: 1,            // rewarded "Revive" uses per run
-    reviveClearDepth: 260,       // revive removes every bubble whose top is within this distance below the danger line (or above it)
+  // ---- Revive (free for now; becomes a rewarded ad at full launch) ----
+  revive: {
+    perRun: 1,                   // "Revive" uses per run
+    clearDepth: 260,             // revive removes every bubble whose top is within this distance below the danger line (or above it)
   },
 
   // ---- Input ----

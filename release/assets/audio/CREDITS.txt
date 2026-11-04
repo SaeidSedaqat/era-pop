@@ -1,0 +1,13 @@
+Era Pop audio credits. Every file here is CC0 (public domain); credit is optional but given anyway.
+
+music.mp3     "Happy Vibes" by Ruskerdax, CC0
+              https://opengameart.org/node/160228
+gameover.mp3  "Cozy Puzzle Failure (Jingle)" from "Cozy Puzzle Jingle & Result" by MintoDog, CC0
+              https://opengameart.org/content/cozy-puzzle-jingle-result
+All other sound effects: "Interface Sounds" by Kenney (www.kenney.nl), CC0
+              https://kenney.nl/assets/interface-sounds  (mirror: https://opengameart.org/content/interface-sounds)
+              drop=drop_002, merge=drop_003, rocket=confirmation_003, serve=confirmation_001,
+              timeout=error_004, wrong=error_002, click=click_002, newcard=maximize_006,
+              storm=glitch_002, tick=tick_001, reward=bong_001
+
+Files were re-encoded to MP3 for browser compatibility.

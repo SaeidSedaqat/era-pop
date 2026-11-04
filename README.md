@@ -18,11 +18,11 @@ Built with [Phaser 4.2.1](https://phaser.io) (vendored in `lib/`) and Matter.js 
 - **Customer Book:** every hybrid customer you serve is collected (42 in total) and saved in your browser. Tap a collected card in the Book to read that customer's funny story.
 - **Pause:** the pause button in the HUD opens a menu: Play, Music on/off, SFX on/off, Book and Restart. Music and SFX choices are remembered.
 - **Sound:** background music and sound effects (all CC0, credits in [`assets/audio/CREDITS.txt`](assets/audio/CREDITS.txt)).
-- **Ads (placeholders):** no ad network is wired in. A 3-second countdown screen stands in for each ad: an interstitial before "Restart" on the game over screen, and a rewarded ad for **Revive** (clears the top of the capsule, once per run).
+- **Revive:** once per run, a free **Revive** on the game over screen clears the top of the capsule. No ads yet: a rewarded ad will be wired into Revive at full launch.
 
 ## Tuning
 
-Every balancing value (scoring, timers, penalties, order ramp-up, customer slots, physics, audio volumes, ad timing)) is in [`src/config.js`](src/config.js).
+Every balancing value (scoring, timers, penalties, order ramp-up, customer slots, physics, audio volumes) is in [`src/config.js`](src/config.js).
 
 ## Project layout
 
@@ -38,7 +38,17 @@ Every balancing value (scoring, timers, penalties, order ramp-up, customer slots
 | `src/GameScene.js` | Capsule, physics, merging, customers, scoring |
 | `src/UIScene.js` | Responsive layout, HUD, cards, input, overlays |
 
-There is no build step. Every push to `main` redeploys GitHub Pages through `.github/workflows/deploy.yml`.
+The source runs as is, with no build step. Every push to `main` redeploys GitHub Pages through `.github/workflows/deploy.yml`.
+
+## Release build
+
+`release/` holds the build to upload to game portals (live at `/era-pop/release/`). Rebuild it before each release:
+
+```
+dotnet run --project tools/build-release
+```
+
+The tool (C#, [NUglify](https://github.com/trullock/NUglify)) bundles Phaser and every `src/` file, in `index.html` order, into one `release/game.js`. The game code is minified and its local names shortened. It also writes a minified `release/index.html` and copies `assets/` unchanged. Each GitHub release attaches the same files as `release.zip`.
 
 ## Versioning
 

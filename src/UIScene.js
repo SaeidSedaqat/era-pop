@@ -214,13 +214,11 @@ class UIScene extends Phaser.Scene {
       this.closeOverlay(true);
       this.openOverlay(type);
     }
-    if (this.ad) this.buildAd();
   }
 
   // ---------- Per-frame drawing ----------
   update() {
     const G = this.G;
-    if (this.ad) this.updateAd();
     if (!G || !G.bubbles || !this.L) return;
     const L = this.L;
     const g = this.g;
@@ -273,7 +271,7 @@ class UIScene extends Phaser.Scene {
   // First-run tutorial: a hint box in the capsule plus a pointer for the current step.
   drawTutorial() {
     const G = this.G, L = this.L, T = G.tutorial;
-    if (!T || this.overlay || this.ad) { this.tutText.setVisible(false); return; }
+    if (!T || this.overlay) { this.tutText.setVisible(false); return; }
     const g = this.g, now = this.time.now;
     const cust = G.customers[0];
     const item = cust ? ERA_DATA.items[cust.tier] : '';
@@ -440,7 +438,6 @@ class UIScene extends Phaser.Scene {
   }
 
   onDown(p) {
-    if (this.ad) return;
     if (this.overlay) { this.overlayClick(p.x, p.y); return; }
     if (this.inRect(this.L.pauseBtn, p.x, p.y)) {
       if (!this.G.gameOver) { EraAudio.play('click'); this.openOverlay('pause'); }
@@ -610,39 +607,23 @@ class UIScene extends Phaser.Scene {
     this.ovText('BEST ' + G.best, W / 2, py + ph * 0.38, pw * 0.055, '#cfc6ff');
     const bw = pw * 0.76, bh = ph * 0.12;
 
-    // Rewarded ad: revive (clears the top of the capsule).
-    const offers = [];
-    if (G.canRevive()) offers.push({ label: 'REVIVE', color: 0xf28b30, fn: () => this.showAd('rewarded', () => { this.closeOverlay(); G.revive(); }) });
-    const gap = pw * 0.04, ow = offers.length > 1 ? (bw - gap) / 2 : bw;
-    offers.forEach((o, i) => {
-      const rect = { x: W / 2 - bw / 2 + i * (ow + gap), y: py + ph * 0.46, w: ow, h: bh };
-      this.ovButton(g, rect, o.label, o.color, o.fn);
-      this.adBadge(g, rect);
-    });
+    // Revive (clears the top of the capsule), once per run. Free for now; a rewarded ad goes here at full launch.
+    if (G.canRevive()) {
+      this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.46, w: bw, h: bh }, 'REVIVE', 0xf28b30, () => {
+        EraAudio.play('reward');
+        this.closeOverlay();
+        G.revive();
+      });
+    }
 
     this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.64, w: bw, h: bh }, 'RESTART', 0x2fb86a, () => {
-      // Interstitial between sessions.
-      this.gamesSinceAd = (this.gamesSinceAd || 0) + 1;
-      const restart = () => { this.closeOverlay(); this.G.restartGame(); };
-      if (this.gamesSinceAd >= this.C.ads.interstitialEveryGames) {
-        this.gamesSinceAd = 0;
-        this.showAd('interstitial', restart);
-      } else {
-        restart();
-      }
+      this.closeOverlay();
+      this.G.restartGame();
     });
     this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.81, w: bw, h: bh }, 'CUSTOMER BOOK ' + EraStorage.bookCount() + '/49', 0x6a3fd0, () => {
       this.closeOverlay(true);
       this.openOverlay('book');
     });
-  }
-
-  // Small "AD" tag on the corner of a rewarded button.
-  adBadge(g, r) {
-    const h = r.h * 0.42, w = h * 1.5, x = r.x + r.w - w * 0.75, y = r.y - h * 0.45;
-    g.fillStyle(0xffe066, 1).fillRoundedRect(x, y, w, h, h * 0.3);
-    g.lineStyle(Math.max(2, h * 0.08), 0x241b3d, 1).strokeRoundedRect(x, y, w, h, h * 0.3);
-    this.ovText('AD', x + w / 2, y + h / 2, h * 0.6, '#241b3d').setStroke('#241b3d', 0).setDepth(102);
   }
 
   // Pause menu: icon buttons in the HUD button style.
@@ -681,69 +662,6 @@ class UIScene extends Phaser.Scene {
     }
   }
 
-  // ---------- Placeholder ads (no ad network: a short countdown screen) ----------
-  // kind: 'interstitial' | 'rewarded'. onDone runs when the countdown ends.
-  showAd(kind, onDone) {
-    if (this.ad) return;
-    this.cancelPress();
-    EraAudio.pauseMusic();
-    this.ad = { kind, onDone, start: this.time.now, dur: this.C.ads.durationSec * 1000, objs: [] };
-    this.buildAd();
-  }
-
-  buildAd() {
-    const ad = this.ad, { W, H } = this.L, m = Math.min(W, H);
-    for (const o of ad.objs) o.destroy();
-    ad.objs = [];
-    const text = (str, x, y, size, color) => {
-      const t = this.add.text(x, y, str, {
-        fontFamily: FONT, fontStyle: '900', fontSize: Math.round(size) + 'px', color, align: 'center',
-      }).setOrigin(0.5).setDepth(202);
-      ad.objs.push(t);
-      return t;
-    };
-    const g = this.add.graphics().setDepth(200);
-    ad.objs.push(g);
-    g.fillStyle(0x07050f, 0.97).fillRect(0, 0, W, H);
-    // The "ad creative": an empty frame where a real ad would play.
-    const bw = Math.min(W * 0.84, H * 1.2), bh = Math.min(bw * 0.62, H * 0.5);
-    const bx = (W - bw) / 2, by = H * 0.42 - bh / 2;
-    g.fillStyle(0x1a1430, 1).fillRoundedRect(bx, by, bw, bh, m * 0.02);
-    g.lineStyle(Math.max(2, m * 0.004), 0x5a5478, 1).strokeRoundedRect(bx, by, bw, bh, m * 0.02);
-    text('ADVERTISEMENT', W / 2, by - m * 0.045, m * 0.028, '#8f86b8');
-    text('AD PLACEHOLDER', W / 2, by + bh * 0.4, Math.min(bw * 0.07, m * 0.06), '#cfc6ff');
-    text(ad.kind === 'rewarded' ? 'Watch to get your reward' : 'Your next game starts soon', W / 2, by + bh * 0.58, Math.min(bw * 0.04, m * 0.032), '#8f86b8');
-    ad.ring = this.add.graphics().setDepth(201);
-    ad.objs.push(ad.ring);
-    ad.r = m * 0.07;
-    ad.cx = W / 2;
-    ad.cy = by + bh + ad.r * 1.7;
-    ad.num = text('', ad.cx, ad.cy, ad.r * 0.9, '#ffffff');
-    ad.sub = text('', W / 2, ad.cy + ad.r * 1.6, m * 0.03, '#cfc6ff');
-    this.updateAd();
-  }
-
-  updateAd() {
-    const ad = this.ad, t = this.time.now - ad.start;
-    if (t >= ad.dur) {
-      for (const o of ad.objs) o.destroy();
-      this.ad = null;
-      if (ad.kind === 'rewarded') EraAudio.play('reward');
-      ad.onDone();
-      return;
-    }
-    const left = Math.ceil((ad.dur - t) / 1000);
-    ad.num.setText(String(left));
-    ad.sub.setText(ad.kind === 'rewarded' ? 'Reward in ' + left + 's' : 'Ad ends in ' + left + 's');
-    const g = ad.ring.clear(), lw = ad.r * 0.16;
-    g.lineStyle(lw, 0xffffff, 0.15).strokeCircle(ad.cx, ad.cy, ad.r);
-    g.lineStyle(lw, 0x22e3ff, 1);
-    g.beginPath();
-    g.arc(ad.cx, ad.cy, ad.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (t / ad.dur));
-    g.strokePath();
-  }
-
-
   buildBook() {
     const { W, H } = this.L;
     const g = this.add.graphics().setDepth(100);
@@ -758,9 +676,7 @@ class UIScene extends Phaser.Scene {
     this.overlay.panel = { x: px, y: py, w: pw, h: ph };
 
     const titleH = ph * 0.1;
-    // Debug "all customers" view: all 49 shown unlocked, without touching the save.
-    const all = !!(window.ERA_DEBUG && window.ERA_DEBUG.showAll);
-    this.ovText('CUSTOMER BOOK  ' + (all ? 49 : EraStorage.bookCount()) + '/49', px + pw * 0.05, py + titleH * 0.55, Math.min(titleH * 0.42, pw * 0.05), '#ffe066', [0, 0.5]);
+    this.ovText('CUSTOMER BOOK  ' + EraStorage.bookCount() + '/49', px + pw * 0.05, py + titleH * 0.55, Math.min(titleH * 0.42, pw * 0.05), '#ffe066', [0, 0.5]);
     const cb = titleH * 0.7;
     this.ovButton(g, { x: px + pw - cb - pw * 0.03, y: py + titleH * 0.55 - cb / 2, w: cb, h: cb }, 'X', 0xff4f6a, () => this.closeBookOverlay());
 
@@ -778,7 +694,7 @@ class UIScene extends Phaser.Scene {
     entries.forEach(([l, j], i) => {
       const x = ox + (i % cols) * size + gap / 2, y = oy + Math.floor(i / cols) * size * aspect + gap / 2;
       const w = size - gap, h = size * aspect - gap;
-      const found = all || EraStorage.hasInBook(l, j);
+      const found = EraStorage.hasInBook(l, j);
       g.fillStyle(found ? 0x4a3d7a : 0x221d38, 1).fillRoundedRect(x, y, w, h, w * 0.1);
       const pic = this.add.image(x + w / 2, y + w * 0.46, (found ? 'cust_' : 'custlock_') + l + '_' + j)
         .setDisplaySize(w * 0.76, w * 0.76).setDepth(101);
