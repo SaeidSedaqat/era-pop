@@ -14,9 +14,10 @@ class GameScene extends Phaser.Scene {
     if (this.load.list.size > 0) this.showLoadingBar(); // nothing queued on restart
   }
 
-  // Logo and progress bar while the art sheets download (camera is still full-screen here).
+  // Logo, progress bar and percentage on plain black while the art sheets download (camera is still full-screen here).
   showLoadingBar() {
     const W = this.scale.width, H = this.scale.height;
+    const black = this.add.rectangle(0, 0, W, H, 0x000000, 1).setOrigin(0, 0);
     const bw = Math.min(W * 0.6, 600), bh = Math.max(10, Math.min(W, H) * 0.025);
     const x = (W - bw) / 2, y = H * 0.62;
     const title = this.textures.exists('ui_logo')
@@ -27,17 +28,24 @@ class GameScene extends Phaser.Scene {
       }).setOrigin(0.5, 1);
     if (title.type === 'Image') title.setScale(Math.min((W * 0.7) / title.width, (H * 0.4) / title.height));
     const g = this.add.graphics();
+    const pct = this.add.text(W / 2, y + bh * 2.2, '0%', {
+      fontFamily: ERA_FONTS.title, fontStyle: '900', fontSize: Math.round(Math.max(14, Math.min(W, H) * 0.035)) + 'px',
+      color: '#ffffff',
+    }).setOrigin(0.5, 0);
     const draw = (p) => {
       g.clear();
-      g.fillStyle(0x000000, 0.35).fillRoundedRect(x, y, bw, bh, bh / 2);
+      g.fillStyle(0xffffff, 0.15).fillRoundedRect(x, y, bw, bh, bh / 2);
       g.fillStyle(0x22e3ff, 1).fillRoundedRect(x, y, Math.max(bh, bw * p), bh, bh / 2);
+      pct.setText(Math.round(p * 100) + '%');
     };
     draw(0);
     this.load.on('progress', draw);
     this.load.once('complete', () => {
       this.load.off('progress', draw);
       g.destroy();
+      pct.destroy();
       title.destroy();
+      black.destroy();
     });
   }
 

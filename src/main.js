@@ -24,7 +24,7 @@
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: 'game',
-      backgroundColor: '#241b3d',
+      backgroundColor: '#000000',
       scale: {
         mode: Phaser.Scale.NONE,
         width: s.w,

@@ -14,7 +14,7 @@ Built with [Phaser 4.2.1](https://phaser.io) (vendored in `lib/`) and Matter.js 
 - Orders time out and cost points. You lose when the stack stays above the dashed line.
 - **Time storms:** every few minutes the portal glitches for 15 s: an era invasion, a merge frenzy, or a rush hour, each with bonus rewards.
 - **Customer Book:** every hybrid customer you serve is collected (42 in total) and saved in your browser. Tap a collected card in the Book to read that customer's funny story.
-- **Pause:** the pause button next to the Book opens a menu: Play, Music on/off, SFX on/off, Book and Restart. Music and SFX choices are remembered.
+- **Pause:** the pause button in the HUD opens a menu: Play, Music on/off, SFX on/off, Book and Restart. Music and SFX choices are remembered.
 - **Sound:** background music and sound effects (all CC0, credits in [`assets/audio/CREDITS.txt`](assets/audio/CREDITS.txt)).
 - **Ads (placeholders):** no ad network is wired in. A 3-second countdown screen stands in for each ad: an interstitial before "Restart" on the game over screen, and a rewarded ad for **Revive** (clears the top of the capsule, once per run).
 

@@ -13,15 +13,23 @@ const ICONS = {
   play(g, cx, cy, s) {
     g.fillStyle(0xffffff, 1).fillTriangle(cx - s * 0.26, cy - s * 0.38, cx - s * 0.26, cy + s * 0.38, cx + s * 0.38, cy);
   },
+  // Two beamed eighth notes. Off: the notes shift left and get a white x, like the SFX icon.
   music(g, cx, cy, s, off) {
-    const lw = Math.max(2, s * 0.09);
-    g.fillStyle(0xffffff, 1).fillEllipse(cx - s * 0.24, cy + s * 0.26, s * 0.28, s * 0.22)
-      .fillEllipse(cx + s * 0.22, cy + s * 0.16, s * 0.28, s * 0.22)
-      .fillRect(cx - s * 0.13, cy - s * 0.3, lw, s * 0.56)
-      .fillRect(cx + s * 0.33, cy - s * 0.4, lw, s * 0.56);
-    g.fillTriangle(cx - s * 0.13, cy - s * 0.3, cx + s * 0.33 + lw, cy - s * 0.4, cx + s * 0.33 + lw, cy - s * 0.24)
-      .fillTriangle(cx - s * 0.13, cy - s * 0.3, cx - s * 0.13, cy - s * 0.14, cx + s * 0.33 + lw, cy - s * 0.24);
-    if (off) ICONS.cross(g, cx, cy, s);
+    if (off) cx -= s * 0.14;
+    const lw = Math.max(2, s * 0.1), hw = s * 0.3, hh = s * 0.22, beam = s * 0.15;
+    const lx = cx - s * 0.08, rx = cx + s * 0.34;          // right edges of the two stems
+    const lTop = cy - s * 0.3, rTop = cy - s * 0.4, lBot = cy + s * 0.26, rBot = cy + s * 0.16;
+    g.fillStyle(0xffffff, 1)
+      .fillRect(lx - lw, lTop, lw, lBot - lTop)
+      .fillRect(rx - lw, rTop, lw, rBot - rTop)
+      .fillEllipse(lx - hw / 2, lBot, hw, hh)
+      .fillEllipse(rx - hw / 2, rBot, hw, hh)
+      .fillPoints([{ x: lx - lw, y: lTop }, { x: rx, y: rTop }, { x: rx, y: rTop + beam }, { x: lx - lw, y: lTop + beam }], true);
+    if (off) {
+      const x0 = cx + s * 0.46;
+      g.lineStyle(Math.max(2, s * 0.09), 0xffffff, 1)
+        .lineBetween(x0, cy - s * 0.16, x0 + s * 0.3, cy + s * 0.16).lineBetween(x0, cy + s * 0.16, x0 + s * 0.3, cy - s * 0.16);
+    }
   },
   sfx(g, cx, cy, s, off) {
     cx -= s * 0.12;
@@ -83,7 +91,6 @@ class UIScene extends Phaser.Scene {
     this.bestText = txt([0, 0.5]).setColor('#cfc6ff');
     this.nextLabel = txt([0.5, 0.5]).setText('NEXT');
     this.nextImg = this.add.image(0, 0, 'bubble0');
-    this.bookText = txt([0.5, 0.5]);
     this.versionText = txt([0, 1]).setText('v' + this.C.version).setColor('#8f86b8').setStroke('#241b3d', 0);
 
     this.cards = [];
@@ -151,11 +158,8 @@ class UIScene extends Phaser.Scene {
       this.nextLabel.setFontSize(Math.round(fs * 0.7)).setPosition(W * 0.5 - hudH * 0.55, hudH * 0.5);
       L.scoreMaxW = this.nextLabel.x - this.nextLabel.width / 2 - pad * 4;
       L.next = { x: W * 0.5 + hudH * 0.15, y: hudH * 0.5, r: hudH * 0.36 };
-      L.bookBtn = { x: W - pad * 2 - W * 0.26, y: hudH * 0.18, w: W * 0.26, h: hudH * 0.64 };
-      // Pause button centred in the gap between the NEXT bubble and the Book button.
-      const mw = Math.min(hudH * 0.64, (L.bookBtn.x - (L.next.x + L.next.r)) * 0.8);
-      L.pauseBtn = { x: (L.next.x + L.next.r + L.bookBtn.x) / 2 - mw / 2, y: hudH * 0.5 - mw / 2, w: mw, h: mw };
-      this.bookText.setFontSize(Math.round(fs * 0.7));
+      const mw = hudH * 0.64;
+      L.pauseBtn = { x: W - pad * 2 - mw, y: hudH * 0.5 - mw / 2, w: mw, h: mw };
       this.versionText.setFontSize(Math.max(10, Math.round(fs * 0.45))).setPosition(pad, H - pad * 0.3);
     } else {
       const side = Math.round(Math.min(W * 0.25, H * 0.62));
@@ -177,12 +181,10 @@ class UIScene extends Phaser.Scene {
       L.scoreMaxW = side * 0.8;
       this.nextLabel.setFontSize(Math.round(fs * 0.7)).setPosition(side / 2, H * 0.42);
       L.next = { x: side / 2, y: H * 0.53, r: Math.min(side * 0.18, H * 0.08) };
-      L.bookBtn = { x: side * 0.12, y: H * 0.7, w: side * 0.76, h: Math.min(H * 0.1, side * 0.3) };
-      L.pauseBtn = { x: side / 2 - L.bookBtn.h * 0.5, y: L.bookBtn.y + L.bookBtn.h * 1.3, w: L.bookBtn.h, h: L.bookBtn.h };
-      this.bookText.setFontSize(Math.round(fs * 0.7));
+      const mw = Math.min(H * 0.12, side * 0.36);
+      L.pauseBtn = { x: side / 2 - mw / 2, y: H * 0.72, w: mw, h: mw };
       this.versionText.setFontSize(Math.max(10, Math.round(fs * 0.45))).setPosition(pad, H - pad);
     }
-    this.bookText.setPosition(L.bookBtn.x + L.bookBtn.w / 2, L.bookBtn.y + L.bookBtn.h / 2);
     this.nextImg.setPosition(L.next.x, L.next.y);
     this.toastText.setFontSize(Math.round(Math.min(W, H) * 0.035)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.3)
       .setWordWrapWidth(L.cap.w * 0.95).setAlign('center');
@@ -220,10 +222,8 @@ class UIScene extends Phaser.Scene {
     const nr = this.C.bubbleRadius[G.nextTier] * EraDraw.TEX_SCALE;
     this.nextImg.setScale(L.next.r / nr);
     g.fillStyle(0xffffff, 0.08).fillCircle(L.next.x, L.next.y, L.next.r * 1.1);
-    this.button(g, L.bookBtn, 0x6a3fd0);
     this.button(g, L.pauseBtn, 0x2fb8b0);
     ICONS.pause(g, L.pauseBtn.x + L.pauseBtn.w / 2, L.pauseBtn.y + L.pauseBtn.h / 2, Math.min(L.pauseBtn.w, L.pauseBtn.h) * 0.6);
-    this.bookText.setText('BOOK ' + EraStorage.bookCount() + '/42');
 
     // Customer cards
     const open = G.openSlots();
@@ -367,7 +367,6 @@ class UIScene extends Phaser.Scene {
       if (!this.G.gameOver) { EraAudio.play('click'); this.openOverlay('pause'); }
       return;
     }
-    if (this.inRect(this.L.bookBtn, p.x, p.y)) { EraAudio.play('click'); this.openOverlay('book'); return; }
     const G = this.G;
     if (G.gameOver || !this.inRect(this.L.cap, p.x, p.y)) return;
     // A press on a bubble is a tap (aim + drop) unless it moves far enough to become a drag-to-serve.
@@ -572,7 +571,7 @@ class UIScene extends Phaser.Scene {
     const g = this.add.graphics().setDepth(100);
     this.overlay.objs.push(g);
     g.fillStyle(0x0b0818, 0.75).fillRect(0, 0, W, H);
-    const pw = Math.min(W * 0.8, H * 0.55), ph = pw * 1.35;
+    const pw = Math.min(W * 0.8, H * 0.58), ph = pw * 1.3;
     const px = (W - pw) / 2, py = (H - ph) / 2;
     g.fillStyle(0x2f2552, 1).fillRoundedRect(px, py, pw, ph, pw * 0.06);
     g.lineStyle(Math.max(3, pw * 0.01), 0xbfe9ff, 0.8).strokeRoundedRect(px, py, pw, ph, pw * 0.06);
@@ -593,11 +592,10 @@ class UIScene extends Phaser.Scene {
         fn: () => { this.closeOverlay(); this.G.quitRun(); this.G.restartGame(); } },
     ];
     for (const it of items) {
-      const cy = py + ph * (0.3 + it.row * 0.27);
+      const cy = py + pw * (0.36 + it.row * 0.36);
       const rect = { x: it.x - s / 2, y: cy - s / 2, w: s, h: s };
       this.button(g, rect, it.color);
       ICONS[it.icon](g, it.x, cy, s * 0.6, it.off);
-      this.ovText(it.label, it.x, rect.y + s * 1.2, s * 0.17, '#cfc6ff');
       this.overlay.buttons.push({ rect, fn: it.fn });
     }
   }
