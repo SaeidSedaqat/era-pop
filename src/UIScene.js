@@ -26,6 +26,16 @@ class UIScene extends Phaser.Scene {
     this.bookText = txt([0.5, 0.5]);
     this.versionText = txt([0, 1]).setText('v' + this.C.version).setColor('#8f86b8').setStroke('#241b3d', 0);
 
+    // One speech bubble per customer slot (drawn above the cards, below overlays).
+    this.speech = [];
+    this.speechSeq = 0;
+    for (let i = 0; i < this.C.customers.maxSlots; i++) {
+      this.speech.push({
+        id: 0, start: 0, dur: 0, kind: null,
+        g: this.add.graphics().setVisible(false),
+        text: this.add.text(0, 0, '', { fontFamily: ERA_FONTS.body, fontStyle: 'bold', color: '#241b3d' }).setVisible(false),
+      });
+    }
     this.cards = [];
     for (let i = 0; i < this.C.customers.maxSlots; i++) {
       this.cards.push({
@@ -62,6 +72,7 @@ class UIScene extends Phaser.Scene {
     this.aiming = false;
     this.ghost.setVisible(false);
     this.toastText.setVisible(false);
+    for (const s of this.speech) { s.dur = 0; s.g.setVisible(false); s.text.setVisible(false); }
     this.layout();
   }
 
@@ -161,6 +172,8 @@ class UIScene extends Phaser.Scene {
     const open = G.openSlots();
     const hover = this.press && this.press.dragging ? this.cardAt(this.input.activePointer.x, this.input.activePointer.y) : -1;
     for (let i = 0; i < this.cards.length; i++) this.drawCard(i, L.cards[i], G.customers[i], i < open, hover === i);
+
+    this.drawSpeech();
 
     // Time storm banner
     if (G.storm && !G.gameOver) {
@@ -357,6 +370,77 @@ class UIScene extends Phaser.Scene {
   onServed(res) {
     if (res.eraDone) this.toast(ERA_DATA.eras[res.look].short + ' look complete!\nNew capsule skin in the Book', 3000);
     else if (res.isNew) this.toast('New in your Customer Book:\n' + res.name + '!', 2200);
+  }
+
+  // Speech bubbles: a new line from a customer (new speechId) pops a bubble next to their card for a few
+  // seconds. It outlives the card, so thank-yous and goodbyes stay readable after the customer leaves.
+  drawSpeech() {
+    const G = this.G, L = this.L, now = this.time.now, SP = this.C.customers.speech;
+    const fs = Math.round(Math.max(11 * window.ERA_DPR, Math.min(L.W, L.H) * (L.portrait ? 0.03 : 0.022)));
+    const fills = { arrive: 0xffffff, hurry: 0xfff1a8, thanks: 0xd6ffe0, leave: 0xffd6dc };
+    // Portrait: bubbles hang below the cards in two staggered rows (even slots on top, odd slots under
+    // them) so neighbours never cover each other. The lower row moves up when the top row is empty.
+    const slotW = L.cards.length > 1 ? L.cards[1].x - L.cards[0].x : L.W;
+    const pad = fs * 0.6, tail = fs * 0.9;
+    let topRowH = 0;
+    if (L.portrait) {
+      this.speech.forEach((s, i) => {
+        if (i % 2 || now - s.start > s.dur || !s.id) return;
+        s.text.setFontSize(fs).setWordWrapWidth(slotW * 1.6 - pad * 2);
+        topRowH = Math.max(topRowH, s.text.height + pad * 2);
+      });
+    }
+    this.speech.forEach((s, i) => {
+      const c = G.customers[i];
+      if (c && c.speechId && c.speechId !== s.id) {
+        s.id = c.speechId;
+        s.start = now;
+        s.dur = (SP[c.speechKind + 'Sec'] || 2.5) * 1000;
+        s.kind = c.speechKind;
+        s.text.setText(c.speech);
+        const depth = 30 + (++this.speechSeq % 30) * 2; // newest on top
+        s.g.setDepth(depth);
+        s.text.setDepth(depth + 1);
+      }
+      const t = now - s.start;
+      if (t > s.dur || G.gameOver || this.overlay) {
+        s.g.setVisible(false);
+        s.text.setVisible(false);
+        return;
+      }
+      const r = L.cards[i];
+      const bw = L.portrait ? slotW * 1.6 : Math.min(r.w * 1.05, L.cap.w * 0.5);
+      s.text.setFontSize(fs).setWordWrapWidth(bw - pad * 2);
+      const bh = s.text.height + pad * 2;
+      let bx, by, lowered = false;
+      if (L.portrait) {
+        bx = Phaser.Math.Clamp(r.x + r.w / 2 - bw / 2, L.pad, L.W - L.pad - bw);
+        by = r.y + r.h + tail;
+        if (i % 2 && topRowH) { by += topRowH + pad; lowered = true; }
+      } else {
+        bx = r.x - tail - bw;
+        by = Phaser.Math.Clamp(r.y + r.h / 2 - bh / 2, L.pad, L.H - L.pad - bh);
+      }
+      const a = Math.max(0, Math.min(1, t / 120, (s.dur - t) / 300));
+      const g = s.g.clear().setVisible(true).setAlpha(a);
+      const fill = fills[s.kind] || 0xffffff, line = Math.max(2, fs * 0.14);
+      g.fillStyle(fill, 1).fillRoundedRect(bx, by, bw, bh, fs * 0.6);
+      g.lineStyle(line, 0x241b3d, 1).strokeRoundedRect(bx, by, bw, bh, fs * 0.6);
+      // Tail pointing at the customer's card.
+      if (L.portrait) {
+        // A lowered bubble gets a long thin tail reaching up to its card.
+        const tx = Phaser.Math.Clamp(r.x + r.w / 2, bx + tail, bx + bw - tail);
+        const tipY = lowered ? r.y + r.h + line : by - tail + line;
+        const half = lowered ? tail * 0.35 : tail * 0.6;
+        g.fillStyle(fill, 1).fillTriangle(tx - half, by + line, tx + half, by + line, tx, tipY);
+        g.lineStyle(line, 0x241b3d, 1).lineBetween(tx - half, by, tx, tipY).lineBetween(tx + half, by, tx, tipY);
+      } else {
+        const ty = Phaser.Math.Clamp(r.y + r.h / 2, by + tail, by + bh - tail);
+        g.fillStyle(fill, 1).fillTriangle(bx + bw - line, ty - tail * 0.6, bx + bw - line, ty + tail * 0.6, bx + bw + tail - line, ty);
+        g.lineStyle(line, 0x241b3d, 1).lineBetween(bx + bw, ty - tail * 0.6, bx + bw + tail - line, ty).lineBetween(bx + bw, ty + tail * 0.6, bx + bw + tail - line, ty);
+      }
+      s.text.setVisible(true).setAlpha(a).setPosition(bx + pad, by + pad);
+    });
   }
 
   cardFx(key, r) {

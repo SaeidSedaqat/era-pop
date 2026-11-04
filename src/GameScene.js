@@ -105,6 +105,7 @@ class GameScene extends Phaser.Scene {
     this.pendingDrop = false;
     this.customers = new Array(C.customers.maxSlots).fill(null);
     this.customersSpawned = 0;
+    this.speechSeq = this.speechSeq || 0;
     this.spawnTimerMs = C.customers.firstCustomerDelayMs;
     this.dangerActive = false;
     this.combo = 0;
@@ -480,7 +481,16 @@ class GameScene extends Phaser.Scene {
       look, job, tier: job, name: ERA_DATA.customerName(look, job), mult,
       gentle: this.customersSpawned <= CC.gentleCustomers,
       timeLeft: total, timeTotal: total, state: 'waiting', age: 0, leaveT: 0, result: null, points: 0, tip: 0,
+      hurried: false, speech: null, speechKind: null, speechId: 0,
     };
+    this.say(this.customers[slot], 'arrive');
+  }
+
+  // Give a customer a new line to say; UIScene shows it in a speech bubble (new speechId = new bubble).
+  say(c, moment) {
+    c.speech = ERA_DATA.line(c.look, c.job, moment);
+    c.speechKind = moment;
+    c.speechId = ++this.speechSeq;
   }
 
   // ---------- Time storms ----------
@@ -523,6 +533,10 @@ class GameScene extends Phaser.Scene {
       c.age += dt;
       if (c.state === 'waiting') {
         c.timeLeft -= dt;
+        if (!c.hurried && c.timeLeft < c.timeTotal * CC.speech.hurryAtFraction) {
+          c.hurried = true;
+          this.say(c, 'hurry');
+        }
         if (c.timeLeft <= 0) {
           c.timeLeft = 0;
           const pen = c.gentle ? 0 : this.C.scoring.timeoutPenalty[c.tier];
@@ -530,6 +544,7 @@ class GameScene extends Phaser.Scene {
           c.state = 'leaving';
           c.result = 'timeout';
           c.points = -pen;
+          this.say(c, 'leave');
         }
       } else if (c.state === 'leaving') {
         c.leaveT += dt;
@@ -562,6 +577,7 @@ class GameScene extends Phaser.Scene {
     c.result = 'served';
     c.points = bonus + tip;
     c.tip = tip;
+    this.say(c, 'thanks');
     let isNew = false, eraDone = false;
     if (c.look !== c.job) {
       isNew = EraStorage.addToBook(c.look, c.job);

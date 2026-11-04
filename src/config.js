@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.83',
+  version: '0.1.93',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -102,6 +102,8 @@ window.ERA_POP_CONFIG = {
       { atSec: 200, min: 2, max: 6 },
       { atSec: 280, min: 3, max: 6 },
     ],
+    // Speech bubbles: how long each kind of line stays up, and when customers start complaining.
+    speech: { arriveSec: 3.2, hurrySec: 2.6, thanksSec: 2.2, leaveSec: 2.4, hurryAtFraction: 0.3 },
     arriveSec: 0.35,             // card fade-in
     leaveSec: 0.8,               // card fade-out after serve / timeout
   },

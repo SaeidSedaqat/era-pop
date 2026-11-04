@@ -10,6 +10,7 @@ Built with [Phaser 4.2.1](https://phaser.io) (vendored in `lib/`) and Matter.js 
 
 - **Drop:** touch or click inside the capsule, move to aim, release to drop. With a mouse, the bubble follows the cursor.
 - **Merge:** two identical bubbles that touch merge into the next tier: Wheel, Cart, Carriage, Bicycle, Car, Plane, Rocket. Two Rockets merge and disappear. Merges in quick succession build a combo multiplier.
+- **Customers talk:** speech bubbles when they order, get impatient, get served or give up. The look sets the voice, the job sets what they want.
 - **Serve:** drag a bubble onto the customer who ordered it (bubbles someone ordered glow). Serve fast for a tip. A plain tap anywhere in the capsule (even on a bubble) just drops.
 - Orders time out and cost points. You lose when the stack stays above the dashed line.
 - **Time storms:** every few minutes the portal glitches for 15 s: an era invasion, a merge frenzy, or a rush hour, each with bonus rewards.
