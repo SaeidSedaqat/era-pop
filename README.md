@@ -10,7 +10,7 @@ Built with [Phaser 4.2.1](https://phaser.io) (vendored in `lib/`) and Matter.js 
 
 - **Drop:** touch or click inside the capsule, move to aim, release to drop. With a mouse, the bubble follows the cursor.
 - **Merge:** two identical bubbles that touch merge into the next tier: Wheel, Cart, Carriage, Bicycle, Car, Plane, Rocket. Two Rockets merge and disappear.
-- **Serve:** double tap a bubble to give it to a customer who ordered it, or drag it onto that customer.
+- **Serve:** drag a bubble onto the customer who ordered it. A plain tap anywhere in the capsule (even on a bubble) just drops.
 - Orders time out and cost points. You lose when the stack stays above the dashed line.
 - **Customer Book:** every hybrid customer you serve is collected (42 in total) and saved in your browser.
 

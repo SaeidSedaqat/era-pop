@@ -41,7 +41,6 @@ class UIScene extends Phaser.Scene {
 
     this.overlay = null;
     this.press = null;
-    this.lastTap = null;
     this.aiming = false;
 
     this.input.on('pointerdown', this.onDown, this);
@@ -58,7 +57,6 @@ class UIScene extends Phaser.Scene {
   onGameRestart() {
     this.closeOverlay();
     this.press = null;
-    this.lastTap = null;
     this.aiming = false;
     this.ghost.setVisible(false);
     this.toastText.setVisible(false);
@@ -266,12 +264,10 @@ class UIScene extends Phaser.Scene {
     if (this.inRect(this.L.bookBtn, p.x, p.y)) { this.openOverlay('book'); return; }
     const G = this.G;
     if (G.gameOver || !this.inRect(this.L.cap, p.x, p.y)) return;
+    // A press on a bubble is a tap (aim + drop) unless it moves far enough to become a drag-to-serve.
     const w = G.toWorld(p.x, p.y);
     const b = G.bubbleAt(w.x, w.y);
-    if (b) {
-      this.press = { b, x: p.x, y: p.y, dragging: false };
-      return;
-    }
+    if (b) this.press = { b, x: p.x, y: p.y, dragging: false };
     this.aiming = true;
     G.setAim(w.x);
   }
@@ -282,16 +278,19 @@ class UIScene extends Phaser.Scene {
     const pr = this.press;
     if (pr) {
       if (!pr.dragging) {
-        if (pr.b.dead) { this.press = null; return; }
         const th = this.C.input.dragThresholdPx * window.ERA_DPR;
-        if (Phaser.Math.Distance.Between(p.x, p.y, pr.x, pr.y) > th && G.beginDrag(pr.b)) {
+        if (pr.b.dead) {
+          this.press = null;
+        } else if (Phaser.Math.Distance.Between(p.x, p.y, pr.x, pr.y) > th && G.beginDrag(pr.b)) {
           pr.dragging = true;
-          this.lastTap = null;
+          this.aiming = false;
           this.ghost.setTexture('bubble' + pr.b.tier).setVisible(true);
         }
       }
-      if (pr.dragging) this.ghost.setPosition(p.x, p.y).setScale(G.worldZoom / EraDraw.TEX_SCALE);
-      return;
+      if (pr.dragging) {
+        this.ghost.setPosition(p.x, p.y).setScale(G.worldZoom / EraDraw.TEX_SCALE);
+        return;
+      }
     }
     if (G.gameOver) return;
     if (this.aiming || (!p.isDown && !p.wasTouch && this.inRect(this.L.cap, p.x, p.y))) {
@@ -303,28 +302,16 @@ class UIScene extends Phaser.Scene {
     if (this.overlay) return;
     const G = this.G;
     const pr = this.press;
-    if (pr) {
-      this.press = null;
-      if (pr.dragging) {
-        this.ghost.setVisible(false);
-        const slot = this.cardAt(p.x, p.y);
-        const res = slot >= 0 ? G.serveBubble(pr.b, slot) : { ok: false };
-        if (res.ok) this.onServed(res);
-        else {
-          G.endDrag(pr.b);
-          const c = slot >= 0 ? G.customers[slot] : null;
-          if (c && c.state === 'waiting') this.toast('They want a ' + ERA_DATA.items[c.tier] + '!');
-        }
-      } else if (!pr.b.dead) {
-        const now = this.time.now;
-        if (this.lastTap && this.lastTap.b === pr.b && now - this.lastTap.t <= this.C.input.doubleTapMs) {
-          this.lastTap = null;
-          const res = G.serveBubble(pr.b);
-          if (res.ok) this.onServed(res);
-          else this.toast('Nobody ordered a ' + ERA_DATA.items[pr.b.tier] + '!');
-        } else {
-          this.lastTap = { b: pr.b, t: now };
-        }
+    this.press = null;
+    if (pr && pr.dragging) {
+      this.ghost.setVisible(false);
+      const slot = this.cardAt(p.x, p.y);
+      const res = slot >= 0 ? G.serveBubble(pr.b, slot) : { ok: false };
+      if (res.ok) this.onServed(res);
+      else {
+        G.endDrag(pr.b);
+        const c = slot >= 0 ? G.customers[slot] : null;
+        if (c && c.state === 'waiting') this.toast('They want a ' + ERA_DATA.items[c.tier] + '!');
       }
       return;
     }
@@ -429,13 +416,12 @@ class UIScene extends Phaser.Scene {
 
   buildBook() {
     const { W, H } = this.L;
-    const eras = ERA_DATA.eras;
     const g = this.add.graphics().setDepth(100);
     this.overlay.objs.push(g);
     g.fillStyle(0x0b0818, 0.8).fillRect(0, 0, W, H);
 
     const m = Math.min(W, H) * 0.03;
-    const pw = Math.min(W - m * 2, H * 1.05), ph = Math.min(H - m * 2, pw * 1.12);
+    const pw = Math.min(W - m * 2, H * 1.05), ph = Math.min(H - m * 2, pw * 1.6);
     const px = (W - pw) / 2, py = (H - ph) / 2;
     g.fillStyle(0x2f2552, 1).fillRoundedRect(px, py, pw, ph, pw * 0.03);
     g.lineStyle(Math.max(3, pw * 0.006), 0xbfe9ff, 0.8).strokeRoundedRect(px, py, pw, ph, pw * 0.03);
@@ -446,37 +432,29 @@ class UIScene extends Phaser.Scene {
     const cb = titleH * 0.7;
     this.ovButton(g, { x: px + pw - cb - pw * 0.03, y: py + titleH * 0.55 - cb / 2, w: cb, h: cb }, 'X', 0xff4f6a, () => this.closeBookOverlay());
 
-    // Grid: rows = Look era, columns = Job (what they order). Diagonal = base customers (not collected).
+    // Collection: the 42 hybrid customers as cards, undiscovered ones shown as silhouettes.
+    const entries = [];
+    for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) if (l !== j) entries.push([l, j]);
     const gx = px + pw * 0.03, gy = py + titleH, gw = pw * 0.94, gh = ph - titleH - pw * 0.03;
-    const labelW = Math.min(gw * 0.2, gh * 0.2);
-    const cell = Math.min((gw - labelW) / 7, (gh - labelW * 0.6) / 7.6);
-    const gridX = gx + labelW + ((gw - labelW) - cell * 7) / 2;
-    const headY = gy + cell * 0.45;
-    const gridY = gy + cell * 0.9;
-    const lf = Math.max(9, Math.min(cell * 0.22, labelW * 0.17));
-    this.ovText('LOOK ↓  JOB →', gx, headY, lf * 0.8, '#8f86b8', [0, 0.5]);
-
-    for (let j = 0; j < 7; j++) {
-      const cx = gridX + cell * (j + 0.5);
-      const rr = cell * 0.36;
-      g.fillStyle(ERA_DATA.tierColors[j], 0.35).fillCircle(cx, headY, rr);
-      EraDraw.drawItem(g, j, cx, headY, rr * 0.7);
+    const aspect = 1.3; // card height / width
+    let cols = 7, size = 0;
+    for (let c = 3; c <= 14; c++) {
+      const rows = Math.ceil(entries.length / c);
+      const s = Math.min(gw / c, gh / rows / aspect);
+      if (s > size) { size = s; cols = c; }
     }
-    for (let l = 0; l < 7; l++) {
-      const cy = gridY + cell * (l + 0.5);
-      this.ovText(eras[l].short, gx + labelW - lf * 0.4, cy, lf, '#ffffff', [1, 0.5]);
-      for (let j = 0; j < 7; j++) {
-        const cx = gridX + cell * (j + 0.5);
-        const s = cell * 0.42;
-        if (l === j) {
-          g.fillStyle(0x000000, 0.25).fillCircle(cx, cy, s);
-          g.lineStyle(Math.max(1, s * 0.06), 0xffffff, 0.15).strokeCircle(cx, cy, s);
-        } else if (EraStorage.hasInBook(l, j)) {
-          EraDraw.drawAvatar(g, l, j, cx, cy, s, false);
-        } else {
-          EraDraw.drawAvatar(g, l, j, cx, cy, s, true);
-        }
-      }
-    }
+    const rows = Math.ceil(entries.length / cols);
+    const ox = gx + (gw - size * cols) / 2, oy = gy + (gh - size * aspect * rows) / 2;
+    const gap = size * 0.06;
+    const fs = Math.max(8, size * 0.11);
+    entries.forEach(([l, j], i) => {
+      const x = ox + (i % cols) * size + gap / 2, y = oy + Math.floor(i / cols) * size * aspect + gap / 2;
+      const w = size - gap, h = size * aspect - gap;
+      const found = EraStorage.hasInBook(l, j);
+      g.fillStyle(found ? 0x4a3d7a : 0x221d38, 1).fillRoundedRect(x, y, w, h, w * 0.1);
+      EraDraw.drawAvatar(g, l, j, x + w / 2, y + w * 0.46, w * 0.38, !found);
+      const t = this.ovText(found ? ERA_DATA.customerName(l, j) : '???', x + w / 2, y + w * 0.9, fs, found ? '#ffffff' : '#6d6590', [0.5, 0]);
+      t.setStroke('#241b3d', 0).setWordWrapWidth(w * 0.94);
+    });
   }
 }
