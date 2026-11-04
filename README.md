@@ -50,7 +50,7 @@ dotnet run --project tools/build-release
 
 The page loads the CrazyGames SDK v3, and on CrazyGames the saves go through its Data module, so pick "Yes, using the Data Module" for Progress Save when submitting there. The game also reports its SDK game events: `loadingStart`/`loadingStop` around the asset download, `gameplayStart` on each run, resume and revive, and `gameplayStop` on pause and game over. On any other site the SDK is disabled, saves stay in localStorage and the events are skipped. Add `?useLocalSdk=true` to the URL to try the SDK in its local mode.
 
-The tool (C#, [NUglify](https://github.com/trullock/NUglify)) bundles Phaser and every `src/` file, in `index.html` order, into one `release/game.js`. The game code is minified and its local names shortened. It also writes a minified `release/index.html` and copies `assets/` unchanged. Each GitHub release attaches the same files as `release.zip`.
+The tool (C#, [NUglify](https://github.com/trullock/NUglify)) bundles Phaser and every `src/` file, in `index.html` order, into one `release/game.js`. The game code is minified and its local names shortened. The release build hides the in-game version label (it sets `window.ERA_RELEASE`); GitHub Pages still shows it. It also writes a minified `release/index.html` and copies `assets/` unchanged. Each GitHub release attaches the same files as `release.zip`.
 
 ## Versioning
 

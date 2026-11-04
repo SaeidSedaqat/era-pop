@@ -25,7 +25,8 @@ var libs = srcs.Where(s => s.StartsWith("lib/")).ToList();
 var game = srcs.Where(s => s.StartsWith("src/")).ToList();
 
 // Game code: one closure so top-level names can be shortened too; globals on window stay intact.
-var sb = new StringBuilder("(function(){\n");
+// window.ERA_RELEASE hides the in-game version label in the portal build.
+var sb = new StringBuilder("(function(){\nwindow.ERA_RELEASE=true;\n");
 foreach (var s in game) sb.Append(File.ReadAllText(Path.Combine(root, s))).Append("\n;\n");
 sb.Append("})();\n");
 

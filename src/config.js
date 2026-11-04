@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.266',
+  version: '0.1.267',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {

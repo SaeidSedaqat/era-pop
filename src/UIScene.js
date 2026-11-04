@@ -100,7 +100,8 @@ class UIScene extends Phaser.Scene {
     this.bestText = txt([0, 0.5]).setColor('#cfc6ff');
     this.nextLabel = txt([0.5, 0.5]).setText('NEXT');
     this.nextImg = this.add.image(0, 0, 'bubble0');
-    this.versionText = txt([0, 1]).setText('v' + this.C.version).setColor('#8f86b8').setStroke('#241b3d', 0);
+    this.versionText = txt([0, 1]).setText('v' + this.C.version).setColor('#8f86b8').setStroke('#241b3d', 0)
+      .setVisible(!window.ERA_RELEASE);   // hidden in the portal build (release/), shown on GitHub Pages
 
     this.cards = [];
     for (let i = 0; i < this.C.customers.maxSlots; i++) {
