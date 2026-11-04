@@ -11,7 +11,17 @@ window.EraStorage = (function () {
   const KEYS = [BOOK_KEY, BEST_KEY, AUDIO_KEY, TUTORIAL_KEY];
   // Set in localStorage once old local saves were copied into the Data module, so it only happens once.
   const MIGRATED_KEY = 'erapop.cgmigrated.v1';
-  const SDK_TIMEOUT_MS = 5000;
+  const SDK_TIMEOUT_MS = 10000;
+
+  // CrazyGames always runs the game inside an iframe. Opened directly (e.g. on GitHub Pages) the SDK is
+  // "disabled" anyway and its init takes ~7 s to find that out, so it is skipped there.
+  // localhost and ?useLocalSdk=true still use it (the SDK's "local" test mode).
+  function sdkWanted() {
+    let framed = true;
+    try { framed = window.self !== window.top; } catch (e) { /* cross-origin parent: framed */ }
+    const h = location.hostname;
+    return framed || h === 'localhost' || h === '127.0.0.1' || /[?&]useLocalSdk=true/.test(location.search);
+  }
 
   let local = null;
   try { local = window.localStorage; } catch (e) { /* blocked: progress lasts for this session only */ }
@@ -45,7 +55,7 @@ window.EraStorage = (function () {
 
   async function initSdk() {
     const CG = window.CrazyGames;
-    if (!CG || !CG.SDK) return;   // SDK script missing or blocked
+    if (!CG || !CG.SDK || !sdkWanted()) return;   // SDK script missing/blocked, or not on CrazyGames
     await Promise.race([
       CG.SDK.init(),
       new Promise((_, rej) => setTimeout(() => rej(new Error('CrazyGames SDK init timed out')), SDK_TIMEOUT_MS)),
