@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.207',
+  version: '0.1.208',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -86,7 +86,7 @@ window.ERA_POP_CONFIG = {
     betweenOrdersMs: 5000,       // pause after a customer leaves before the next one walks in
     retryWhenFullMs: 1500,       // if every open slot is taken, try again after this
     hybridChance: 0.75,          // chance a customer is a hybrid (look era != job era)
-    orderTimeBaseSec: 20,        // order time limit = base + perTier * tier (Wheel 20 s, Bicycle 50 s ... Plane 80 s)
+    orderTimeBaseSec: 20,        // order time limit = base + perTier * tier (Wheel 20 s, Bicycle 50 s ... Plane 70 s)
     orderTimePerTierSec: 10,
     gentleCustomers: 2,          // the first N customers cost nothing if they time out
     // Rocket orders only appear when one could be served soon (a Rocket or this many Planes in the

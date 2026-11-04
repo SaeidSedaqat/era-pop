@@ -373,10 +373,11 @@ class UIScene extends Phaser.Scene {
       ar = Math.min(r.w * 0.38, r.h * 0.26);
       ax = r.x + r.w / 2 - r.w * 0.06; ay = r.y + pad + ar;
       or = ar * 0.58;
-      ox = r.x + r.w - pad - or * 0.8; oy = ay + ar * 0.65;
+      ox = r.x + r.w - pad - or * 0.8; oy = ay + ar * 0.35;
       nx = r.x + r.w / 2; nw = r.w - pad;
       fs = Math.max(8, Math.min(r.w * 0.1, r.h * 0.06));
-      ny = ay + ar + pad * 0.6;
+      // Name starts below both the avatar and the order bubble so they never overlap.
+      ny = Math.max(ay + ar, oy + or) + pad * 0.6;
     }
 
     card.avatar.setVisible(true).setTexture('cust_' + c.look + '_' + c.job).setPosition(ax, ay)
