@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.16',
+  version: '0.1.72',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -30,8 +30,15 @@ window.ERA_POP_CONFIG = {
 
   // ---- Dropping ----
   drop: {
-    cooldownMs: 300,           // delay before the next bubble is ready
-    spawnTierWeights: [1, 1, 1], // random pick among the lowest three tiers (Wheel, Cart, Carriage)
+    cooldownMs: 300,           // delay before the next bubble is ready (a tap during it is queued)
+    // Odds for the next bubble among the lowest three tiers [Wheel, Cart, Carriage], shifting
+    // toward Carriage over time so the capsule fills faster as the game goes on.
+    spawnWeightRamp: [
+      { atSec: 0, weights: [3, 2, 1] },
+      { atSec: 90, weights: [2, 2, 2] },
+      { atSec: 240, weights: [1, 2, 3] },
+      { atSec: 420, weights: [1, 1, 4] },
+    ],
   },
 
   // ---- Lose condition ----
@@ -42,11 +49,26 @@ window.ERA_POP_CONFIG = {
   // ---- Scoring ----
   scoring: {
     // Points for creating each tier by merging (index = tier created; index 0 unused).
-    mergePoints: [0, 2, 5, 10, 20, 40, 80],
-    rocketPopPoints: 160,              // two Rockets merging and disappearing
+    mergePoints: [0, 4, 10, 25, 60, 150, 400],
+    rocketPopPoints: 1000,             // two Rockets merging and disappearing
     orderBonus: [15, 30, 60, 120, 240, 480, 1000],   // per ordered tier
     timeoutPenalty: [10, 15, 25, 40, 60, 90, 150],   // per ordered tier
     scoreFloor: 0,                     // score never drops below this
+    // Combo: each merge within windowMs of the previous one adds stepMultiplier (x1, x1.5, x2 ... up to max).
+    combo: { windowMs: 1000, stepMultiplier: 0.5, maxMultiplier: 4 },
+    // Tip: serving while the order still has this fraction of its time left adds rate × the order bonus.
+    tip: { windowFraction: 0.33, rate: 0.5 },
+  },
+
+  // ---- Time storms: every so often the portal glitches for a short burst with a twist ----
+  storms: {
+    firstAtSec: 120,
+    everySec: 150,               // gap between the end of one storm and the start of the next
+    durationSec: 15,
+    eraOrderMultiplier: 2,       // "Era invasion": every new customer has one era's look, orders pay x2
+    mergeMultiplier: 2,          // "Merge frenzy": merge points x2
+    rushSpawnFactor: 0.4,        // "Rush hour": customers arrive this much faster...
+    rushOrderMultiplier: 1.5,    // ...and their orders pay x1.5
   },
 
   // ---- Customers & orders ----
@@ -66,9 +88,13 @@ window.ERA_POP_CONFIG = {
     hybridChance: 0.75,          // chance a customer is a hybrid (look era != job era)
     orderTimeBaseSec: 22,        // order time limit = base + perTier * tier
     orderTimePerTierSec: 6,
+    gentleCustomers: 2,          // the first N customers cost nothing if they time out
+    // Rocket orders only appear when one could be served soon (a Rocket or this many Planes in the
+    // capsule), otherwise a smaller order is picked. They also get extra time.
+    rocketOrders: { minPlanes: 2, extraTimeSec: 40 },
     // Order size ramp: the ordered tier is picked uniformly between min and max.
     orderTierRamp: [
-      { atSec: 0, min: 0, max: 1 },
+      { atSec: 0, min: 0, max: 0 },  // only Wheels for the first 30 s
       { atSec: 30, min: 0, max: 2 },
       { atSec: 60, min: 1, max: 3 },
       { atSec: 100, min: 1, max: 4 },

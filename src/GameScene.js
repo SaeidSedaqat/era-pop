@@ -55,12 +55,13 @@ class GameScene extends Phaser.Scene {
     this.matter.world.setGravity(0, C.physics.gravityY);
 
     // ---- Visuals ----
+    this.skin = ERA_DATA.skin(EraStorage.getSkin());
     this.backG = this.add.graphics();
-    this.drawCapsuleBack(this.backG);
     this.aimG = this.add.graphics();
+    this.glowG = this.add.graphics(); // match glow, behind the bubbles
     this.bubbleLayer = this.add.container(0, 0);
     this.frontG = this.add.graphics();
-    this.drawCapsuleFront(this.frontG);
+    this.drawCapsule();
     this.dangerG = this.add.graphics();
     this.portalG = this.add.graphics({ x: cap.width / 2, y: cap.dropY - 10 });
     this.portalG.setScale(1, 0.32);
@@ -77,9 +78,15 @@ class GameScene extends Phaser.Scene {
     this.currentTier = this.randomDropTier();
     this.nextTier = this.randomDropTier();
     this.canDrop = true;
+    this.pendingDrop = false;
     this.customers = new Array(C.customers.maxSlots).fill(null);
+    this.customersSpawned = 0;
     this.spawnTimerMs = C.customers.firstCustomerDelayMs;
     this.dangerActive = false;
+    this.combo = 0;
+    this.lastMergeAt = -1e9;
+    this.storm = null;
+    this.nextStormAt = C.storms.firstAtSec;
 
     this.matter.world.on('collisionstart', this.onCollide, this);
     this.matter.world.on('collisionactive', this.onCollide, this);
@@ -112,16 +119,16 @@ class GameScene extends Phaser.Scene {
   }
 
   // ---------- Drawing ----------
-  drawCapsuleBack(g) {
+  // Capsule glass, drawn in the equipped skin's colours (redrawn when the skin changes).
+  drawCapsule() {
     const { width: W, height: H } = this.C.capsule;
-    g.fillStyle(0x0f1630, 0.75).fillRoundedRect(-6, -14, W + 12, H + 20, 18);
-    g.fillStyle(0x9fd8ff, 0.05).fillRect(0, 0, W, H);
-  }
+    const back = this.backG.clear();
+    back.fillStyle(0x0f1630, 0.75).fillRoundedRect(-6, -14, W + 12, H + 20, 18);
+    back.fillStyle(this.skin.glass, 0.06).fillRect(0, 0, W, H);
 
-  drawCapsuleFront(g) {
-    const { width: W, height: H } = this.C.capsule;
+    const g = this.frontG.clear();
     // glass walls
-    g.lineStyle(10, 0xbfe9ff, 0.85).strokeRoundedRect(-5, -20, W + 10, H + 25, 18);
+    g.lineStyle(10, this.skin.glass, 0.85).strokeRoundedRect(-5, -20, W + 10, H + 25, 18);
     g.fillStyle(0x241b3d, 1).fillRect(-10, -30, W + 20, 18); // open top
     // rim
     g.fillStyle(0xcfd8e6, 1).fillRoundedRect(-22, -22, 34, 14, 6).fillRoundedRect(W - 12, -22, 34, 14, 6);
@@ -130,14 +137,22 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 0.06).fillRect(36, 40, 6, H - 120);
   }
 
+  applySkin(index) {
+    this.skin = ERA_DATA.skin(index);
+    this.drawCapsule();
+  }
+
   drawPortal(time) {
     const g = this.portalG;
     const R = this.C.capsule.width * 0.5;
     g.clear();
-    g.fillStyle(0x6a3fd0, 0.35).fillCircle(0, 0, R);
-    g.fillStyle(0x22e3ff, 0.15).fillCircle(0, 0, R * 0.6);
-    const spin = time * 0.002;
-    const colors = [0x22e3ff, 0xff6fa5, 0xf2d27a, 0xb07ee0];
+    // A storm makes the portal spin fast and flash storm colours.
+    const stormy = !!this.storm;
+    g.fillStyle(stormy ? 0xd0403f : 0x6a3fd0, 0.35).fillCircle(0, 0, R);
+    g.fillStyle(this.skin.portal[0], 0.15).fillCircle(0, 0, R * 0.6);
+    this.portalSpin = (this.portalSpin || 0) + (stormy ? 0.012 : 0.002) * (this.game.loop.delta || 16);
+    const spin = this.portalSpin;
+    const colors = stormy ? [0xffe066, 0xff4f6a, 0xffffff, 0xff9a3c] : this.skin.portal;
     for (let i = 0; i < 8; i++) {
       const r = R * (0.25 + i * 0.1);
       const a = spin * (1 + i * 0.12) + i * 0.8;
@@ -173,9 +188,24 @@ class GameScene extends Phaser.Scene {
     for (let x = 0; x < W; x += 28) g.lineBetween(x, y, Math.min(W, x + 16), y);
   }
 
+  // Pulsing ring around every bubble that a waiting customer ordered.
+  drawGlow(time) {
+    const g = this.glowG.clear();
+    if (this.gameOver) return;
+    const wanted = new Set();
+    for (const c of this.customers) if (c && c.state === 'waiting') wanted.add(c.tier);
+    if (!wanted.size) return;
+    const a = 0.45 + 0.35 * Math.sin(time * 0.008);
+    for (const b of this.bubbles) {
+      if (b.dead || b.dragging || !b.landed || !wanted.has(b.tier)) continue;
+      const p = b.body.position;
+      g.lineStyle(7, 0xffe066, a).strokeCircle(p.x, p.y, b.r + 4);
+    }
+  }
+
   // ---------- Bubbles ----------
   randomDropTier() {
-    const w = this.C.drop.spawnTierWeights;
+    const w = this.rampValue(this.C.drop.spawnWeightRamp, this.elapsed || 0).weights;
     const total = w.reduce((a, b) => a + b, 0);
     let r = Math.random() * total;
     for (let i = 0; i < w.length; i++) {
@@ -227,7 +257,11 @@ class GameScene extends Phaser.Scene {
   }
 
   dropBubble() {
-    if (!this.canDrop || this.gameOver) return;
+    if (this.gameOver) return;
+    if (!this.canDrop) {
+      this.pendingDrop = true; // tap during the cooldown: drop as soon as the next bubble is ready
+      return;
+    }
     const cap = this.C.capsule;
     const r = this.C.bubbleRadius[this.currentTier];
     const x = Phaser.Math.Clamp(this.aimX, r, cap.width - r);
@@ -237,6 +271,10 @@ class GameScene extends Phaser.Scene {
       this.currentTier = this.nextTier;
       this.nextTier = this.randomDropTier();
       this.canDrop = true;
+      if (this.pendingDrop) {
+        this.pendingDrop = false;
+        this.dropBubble();
+      }
     });
   }
 
@@ -265,16 +303,26 @@ class GameScene extends Phaser.Scene {
       const tier = a.tier;
       this.removeBubble(a);
       this.removeBubble(b);
+
+      // Combo: merges close together in time multiply their points.
+      this.combo = this.elapsed - this.lastMergeAt <= S.combo.windowMs / 1000 ? this.combo + 1 : 1;
+      this.lastMergeAt = this.elapsed;
+      let mult = Math.min(S.combo.maxMultiplier, 1 + S.combo.stepMultiplier * (this.combo - 1));
+      if (this.storm && this.storm.type === 'merge') mult *= this.C.storms.mergeMultiplier;
+      const comboTag = this.combo > 1 ? '  COMBO x' + this.combo : '';
+
       if (tier < this.C.bubbleRadius.length - 1) {
         const nb = this.spawnBubble(tier + 1, x, y, true);
         nb.img.setScale(0.7 / EraDraw.TEX_SCALE);
         this.tweens.add({ targets: nb.img, scale: 1 / EraDraw.TEX_SCALE, duration: 160, ease: 'Back.Out' });
-        this.addScore(S.mergePoints[tier + 1]);
-        this.popText(x, y, '+' + S.mergePoints[tier + 1], '#ffffff');
+        const pts = Math.round(S.mergePoints[tier + 1] * mult);
+        this.addScore(pts);
+        this.popText(x, y, '+' + pts + comboTag, this.combo > 1 ? '#ffe066' : '#ffffff', this.combo > 1 ? 1.2 : 1);
       } else {
         // Two Rockets merge and disappear.
-        this.addScore(S.rocketPopPoints);
-        this.popText(x, y, 'POP! +' + S.rocketPopPoints, '#ffe066', 1.6);
+        const pts = Math.round(S.rocketPopPoints * mult);
+        this.addScore(pts);
+        this.popText(x, y, 'POP! +' + pts + comboTag, '#ffe066', 1.6);
         this.burst(x, y);
       }
     }
@@ -331,23 +379,73 @@ class GameScene extends Phaser.Scene {
   spawnInterval() {
     const CC = this.C.customers;
     const k = Phaser.Math.Clamp(this.elapsed / CC.spawnIntervalRampSec, 0, 1);
-    return CC.spawnIntervalStartMs + (CC.spawnIntervalEndMs - CC.spawnIntervalStartMs) * k;
+    const ms = CC.spawnIntervalStartMs + (CC.spawnIntervalEndMs - CC.spawnIntervalStartMs) * k;
+    return this.storm && this.storm.type === 'rush' ? ms * this.C.storms.rushSpawnFactor : ms;
+  }
+
+  // A Rocket order is only fair when a Rocket exists or enough Planes to make one.
+  rocketReachable() {
+    let planes = 0;
+    for (const b of this.bubbles) {
+      if (b.dead) continue;
+      if (b.tier === 6) return true;
+      if (b.tier === 5) planes++;
+    }
+    return planes >= this.C.customers.rocketOrders.minPlanes;
+  }
+
+  pickCustomer() {
+    const CC = this.C.customers;
+    const ramp = this.rampValue(CC.orderTierRamp, this.elapsed);
+    let job = Phaser.Math.Between(ramp.min, ramp.max);
+    if (job === 6 && !this.rocketReachable()) job = Phaser.Math.Between(Math.min(ramp.min, 5), 5);
+    let look = job;
+    if (this.storm && this.storm.type === 'era') look = this.storm.look;
+    else if (Math.random() < CC.hybridChance) {
+      look = Phaser.Math.Between(0, 5);
+      if (look >= job) look += 1;
+    }
+    return { look, job };
   }
 
   spawnCustomer(slot) {
     const CC = this.C.customers;
-    const ramp = this.rampValue(CC.orderTierRamp, this.elapsed);
-    const job = Phaser.Math.Between(ramp.min, ramp.max);
-    let look = job;
-    if (Math.random() < CC.hybridChance) {
-      look = Phaser.Math.Between(0, 5);
-      if (look >= job) look += 1;
+    // Never show the same customer twice at once.
+    let pick = this.pickCustomer();
+    for (let tries = 0; tries < 12 && this.customers.some((c) => c && c.look === pick.look && c.job === pick.job); tries++) {
+      pick = this.pickCustomer();
     }
-    const total = CC.orderTimeBaseSec + CC.orderTimePerTierSec * job;
+    const { look, job } = pick;
+    let total = CC.orderTimeBaseSec + CC.orderTimePerTierSec * job;
+    if (job === 6) total += CC.rocketOrders.extraTimeSec;
+    const ST = this.C.storms;
+    const mult = !this.storm ? 1 : this.storm.type === 'era' ? ST.eraOrderMultiplier : this.storm.type === 'rush' ? ST.rushOrderMultiplier : 1;
+    this.customersSpawned++;
     this.customers[slot] = {
-      look, job, tier: job, name: ERA_DATA.customerName(look, job),
-      timeLeft: total, timeTotal: total, state: 'waiting', age: 0, leaveT: 0, result: null, points: 0,
+      look, job, tier: job, name: ERA_DATA.customerName(look, job), mult,
+      gentle: this.customersSpawned <= CC.gentleCustomers,
+      timeLeft: total, timeTotal: total, state: 'waiting', age: 0, leaveT: 0, result: null, points: 0, tip: 0,
     };
+  }
+
+  // ---------- Time storms ----------
+  updateStorm() {
+    const ST = this.C.storms;
+    if (this.storm) {
+      if (this.elapsed >= this.storm.endsAt) {
+        this.storm = null;
+        this.nextStormAt = this.elapsed + ST.everySec;
+      }
+      return;
+    }
+    if (this.elapsed < this.nextStormAt) return;
+    const type = Phaser.Utils.Array.GetRandom(['era', 'merge', 'rush']);
+    const look = Phaser.Math.Between(0, 6);
+    const label = type === 'era' ? ERA_DATA.eras[look].short + ' invasion! Orders x' + ST.eraOrderMultiplier
+      : type === 'merge' ? 'Merge frenzy! Merges x' + ST.mergeMultiplier
+      : 'Rush hour! Orders x' + ST.rushOrderMultiplier;
+    this.storm = { type, look, label, endsAt: this.elapsed + ST.durationSec };
+    if (type === 'rush') this.spawnTimerMs = Math.min(this.spawnTimerMs, 500);
   }
 
   updateCustomers(dt) {
@@ -372,7 +470,7 @@ class GameScene extends Phaser.Scene {
         c.timeLeft -= dt;
         if (c.timeLeft <= 0) {
           c.timeLeft = 0;
-          const pen = this.C.scoring.timeoutPenalty[c.tier];
+          const pen = c.gentle ? 0 : this.C.scoring.timeoutPenalty[c.tier];
           this.addScore(-pen);
           c.state = 'leaving';
           c.result = 'timeout';
@@ -401,14 +499,20 @@ class GameScene extends Phaser.Scene {
     if (!c || c.state !== 'waiting' || c.tier !== b.tier) return { ok: false };
 
     this.removeBubble(b); // remaining bubbles fall into the freed space
-    const bonus = this.C.scoring.orderBonus[c.tier];
-    this.addScore(bonus);
+    const S = this.C.scoring;
+    const bonus = Math.round(S.orderBonus[c.tier] * c.mult);
+    const tip = c.timeLeft >= c.timeTotal * (1 - S.tip.windowFraction) ? Math.round(bonus * S.tip.rate) : 0;
+    this.addScore(bonus + tip);
     c.state = 'leaving';
     c.result = 'served';
-    c.points = bonus;
-    let isNew = false;
-    if (c.look !== c.job) isNew = EraStorage.addToBook(c.look, c.job);
-    return { ok: true, slot, isNew, name: c.name };
+    c.points = bonus + tip;
+    c.tip = tip;
+    let isNew = false, eraDone = false;
+    if (c.look !== c.job) {
+      isNew = EraStorage.addToBook(c.look, c.job);
+      eraDone = isNew && EraStorage.eraCount(c.look) === 6;
+    }
+    return { ok: true, slot, isNew, name: c.name, eraDone, look: c.look };
   }
 
   addScore(n) {
@@ -454,6 +558,7 @@ class GameScene extends Phaser.Scene {
     if (!this.gameOver) {
       const dt = Math.min(delta, 100) / 1000;
       this.elapsed += dt;
+      this.updateStorm();
       this.processMerges();
       this.updateCustomers(dt);
       this.checkLose(delta);
@@ -462,6 +567,7 @@ class GameScene extends Phaser.Scene {
       b.img.setPosition(b.body.position.x, b.body.position.y);
       if (!this.C.physics.lockRotation) b.img.setRotation(b.body.angle);
     }
+    this.drawGlow(time);
     this.drawAim();
     this.drawDanger(time);
   }

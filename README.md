@@ -9,10 +9,11 @@ Built with [Phaser 4.2.1](https://phaser.io) (vendored in `lib/`) and Matter.js 
 ## How to play
 
 - **Drop:** touch or click inside the capsule, move to aim, release to drop. With a mouse, the bubble follows the cursor.
-- **Merge:** two identical bubbles that touch merge into the next tier: Wheel, Cart, Carriage, Bicycle, Car, Plane, Rocket. Two Rockets merge and disappear.
-- **Serve:** drag a bubble onto the customer who ordered it. A plain tap anywhere in the capsule (even on a bubble) just drops.
+- **Merge:** two identical bubbles that touch merge into the next tier: Wheel, Cart, Carriage, Bicycle, Car, Plane, Rocket. Two Rockets merge and disappear. Merges in quick succession build a combo multiplier.
+- **Serve:** drag a bubble onto the customer who ordered it (bubbles someone ordered glow). Serve fast for a tip. A plain tap anywhere in the capsule (even on a bubble) just drops.
 - Orders time out and cost points. You lose when the stack stays above the dashed line.
-- **Customer Book:** every hybrid customer you serve is collected (42 in total) and saved in your browser.
+- **Time storms:** every few minutes the portal glitches for 15 s: an era invasion, a merge frenzy, or a rush hour, each with bonus rewards.
+- **Customer Book:** every hybrid customer you serve is collected (42 in total) and saved in your browser. Collecting all 6 hybrids with one era's look unlocks that era's capsule skin.
 
 ## Tuning
 

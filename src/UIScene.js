@@ -37,6 +37,7 @@ class UIScene extends Phaser.Scene {
     }
     this.ghost = this.add.image(0, 0, 'bubble0').setVisible(false).setAlpha(0.9).setDepth(50);
     this.toastText = txt([0.5, 0.5]).setDepth(60).setVisible(false);
+    this.stormText = txt([0.5, 0]).setDepth(55).setVisible(false).setColor('#ffe066');
     this.toastUntil = 0;
 
     this.overlay = null;
@@ -112,6 +113,8 @@ class UIScene extends Phaser.Scene {
     this.nextImg.setPosition(L.next.x, L.next.y);
     this.toastText.setFontSize(Math.round(Math.min(W, H) * 0.035)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.3)
       .setWordWrapWidth(L.cap.w * 0.95).setAlign('center');
+    this.stormText.setFontSize(Math.round(Math.min(W, H) * 0.03)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.2)
+      .setWordWrapWidth(L.cap.w * 0.95).setAlign('center');
     this.L = L;
     this.G.setScreenRect(L.cap);
 
@@ -146,6 +149,15 @@ class UIScene extends Phaser.Scene {
     const open = G.openSlots();
     const hover = this.press && this.press.dragging ? this.cardAt(this.input.activePointer.x, this.input.activePointer.y) : -1;
     for (let i = 0; i < this.cards.length; i++) this.drawCard(i, L.cards[i], G.customers[i], i < open, hover === i);
+
+    // Time storm banner
+    if (G.storm && !G.gameOver) {
+      const left = Math.max(0, Math.ceil(G.storm.endsAt - G.elapsed));
+      this.stormText.setVisible(true).setText('TIME STORM ' + left + 's\n' + G.storm.label)
+        .setAlpha(0.75 + 0.25 * Math.sin(this.time.now * 0.012));
+    } else {
+      this.stormText.setVisible(false);
+    }
 
     // Toast
     if (this.toastText.visible) {
@@ -236,7 +248,7 @@ class UIScene extends Phaser.Scene {
     // Points float
     if (c.state === 'leaving') {
       const k = c.leaveT / CC.leaveSec;
-      card.float.setVisible(true).setText((c.points > 0 ? '+' : '') + c.points)
+      card.float.setVisible(true).setText((c.points > 0 ? '+' : '') + c.points + (c.tip ? '\nTIP!' : '')).setAlign('center')
         .setColor(c.points > 0 ? '#62ff8a' : '#ff4f6a').setFontSize(Math.round(Math.min(r.w, r.h) * 0.22))
         .setPosition(r.x + r.w / 2, r.y + r.h * 0.5 - k * r.h * 0.3).setAlpha(1 - k * 0.6);
     } else {
@@ -327,7 +339,8 @@ class UIScene extends Phaser.Scene {
   }
 
   onServed(res) {
-    if (res.isNew) this.toast('New in your Customer Book:\n' + res.name + '!', 2200);
+    if (res.eraDone) this.toast(ERA_DATA.eras[res.look].short + ' look complete!\nNew capsule skin in the Book', 3000);
+    else if (res.isNew) this.toast('New in your Customer Book:\n' + res.name + '!', 2200);
   }
 
   toast(msg, ms) {
@@ -409,6 +422,44 @@ class UIScene extends Phaser.Scene {
     });
   }
 
+  // Capsule skins: the default plus one per era, unlocked by collecting all 6 hybrids with that era's look.
+  buildSkinStrip(g, x, y, w, h) {
+    const current = EraStorage.getSkin();
+    const lf = Math.max(9, h * 0.16);
+    this.ovText('CAPSULE SKINS', x, y + lf * 0.6, lf, '#cfc6ff', [0, 0.5]);
+    const n = 8, cell = w / n, r = Math.min(cell * 0.36, h * 0.28);
+    const cy = y + lf * 1.4 + r;
+    for (let i = 0; i < n; i++) {
+      const idx = i - 1; // -1 = default
+      const cx = x + cell * (i + 0.5);
+      const count = idx < 0 ? 6 : EraStorage.eraCount(idx);
+      const unlocked = count === 6;
+      const skin = ERA_DATA.skin(idx);
+      if (unlocked) {
+        g.fillStyle(0x0f1630, 1).fillCircle(cx, cy, r);
+        skin.portal.forEach((col, k) => g.lineStyle(r * 0.16, col, 1).strokeCircle(cx, cy, r * (0.25 + k * 0.17)));
+        g.lineStyle(r * 0.18, skin.glass, 1).strokeCircle(cx, cy, r);
+      } else {
+        g.fillStyle(0x221d38, 1).fillCircle(cx, cy, r);
+        this.ovText(count + '/6', cx, cy, r * 0.5, '#6d6590');
+      }
+      if (idx === current) g.lineStyle(Math.max(2, r * 0.12), 0xffffff, 1).strokeCircle(cx, cy, r * 1.22);
+      const label = idx < 0 ? 'Classic' : ERA_DATA.eras[idx].short;
+      this.ovText(label, cx, cy + r * 1.3, Math.max(8, r * 0.38), unlocked ? '#ffffff' : '#6d6590', [0.5, 0]);
+      if (unlocked) {
+        this.overlay.buttons.push({
+          rect: { x: cx - cell / 2, y: cy - r * 1.3, w: cell, h: r * 3 },
+          fn: () => {
+            EraStorage.setSkin(idx);
+            this.G.applySkin(idx);
+            this.closeOverlay(true);
+            this.openOverlay('book');
+          },
+        });
+      }
+    }
+  }
+
   buildBook() {
     const { W, H } = this.L;
     const g = this.add.graphics().setDepth(100);
@@ -430,7 +481,9 @@ class UIScene extends Phaser.Scene {
     // Collection: the 42 hybrid customers as cards, undiscovered ones shown as silhouettes.
     const entries = [];
     for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) if (l !== j) entries.push([l, j]);
-    const gx = px + pw * 0.03, gy = py + titleH, gw = pw * 0.94, gh = ph - titleH - pw * 0.03;
+    const stripH = Math.min(ph * 0.15, pw * 0.16);
+    this.buildSkinStrip(g, px + pw * 0.03, py + ph - stripH - pw * 0.02, pw * 0.94, stripH);
+    const gx = px + pw * 0.03, gy = py + titleH, gw = pw * 0.94, gh = ph - titleH - stripH - pw * 0.05;
     const aspect = 1.3; // card height / width
     let cols = 7, size = 0;
     for (let c = 3; c <= 14; c++) {

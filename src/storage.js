@@ -3,6 +3,7 @@
 window.EraStorage = (function () {
   const BOOK_KEY = 'erapop.book.v1';
   const BEST_KEY = 'erapop.best.v1';
+  const SKIN_KEY = 'erapop.skin.v1';
 
   function read(key, fallback) {
     try {
@@ -26,6 +27,17 @@ window.EraStorage = (function () {
     saveBest(v) { write(BEST_KEY, v); },
     hasInBook(look, job) { return book.has(look + '-' + job); },
     bookCount() { return book.size; },
+    // How many of the 6 hybrids with this era's look have been collected.
+    eraCount(look) {
+      let n = 0;
+      for (let j = 0; j < 7; j++) if (j !== look && book.has(look + '-' + j)) n++;
+      return n;
+    },
+    getSkin() {
+      const s = Number(read(SKIN_KEY, -1));
+      return s >= 0 && s < 7 && this.eraCount(s) === 6 ? s : -1;
+    },
+    setSkin(i) { write(SKIN_KEY, i); },
     // Returns true if this hybrid is new to the book.
     addToBook(look, job) {
       const k = look + '-' + job;
