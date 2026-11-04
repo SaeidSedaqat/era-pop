@@ -8,6 +8,31 @@ class GameScene extends Phaser.Scene {
 
   preload() {
     EraArt.preload(this);
+    if (this.load.list.size > 0) this.showLoadingBar(); // nothing queued on restart
+  }
+
+  // Simple progress bar while the art sheets download (camera is still full-screen here).
+  showLoadingBar() {
+    const W = this.scale.width, H = this.scale.height;
+    const bw = Math.min(W * 0.6, 600), bh = Math.max(10, Math.min(W, H) * 0.025);
+    const x = (W - bw) / 2, y = H / 2;
+    const title = this.add.text(W / 2, y - bh * 3, 'ERA POP', {
+      fontFamily: 'Arial Black, Arial, sans-serif', fontSize: Math.round(Math.min(W, H) * 0.08) + 'px',
+      color: '#ffe066', stroke: '#241b3d', strokeThickness: 6,
+    }).setOrigin(0.5, 1);
+    const g = this.add.graphics();
+    const draw = (p) => {
+      g.clear();
+      g.fillStyle(0x000000, 0.35).fillRoundedRect(x, y, bw, bh, bh / 2);
+      g.fillStyle(0x22e3ff, 1).fillRoundedRect(x, y, Math.max(bh, bw * p), bh, bh / 2);
+    };
+    draw(0);
+    this.load.on('progress', draw);
+    this.load.once('complete', () => {
+      this.load.off('progress', draw);
+      g.destroy();
+      title.destroy();
+    });
   }
 
   create() {
