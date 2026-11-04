@@ -111,7 +111,7 @@ window.EraDraw = (function () {
   function drawBubble(g, tier, x, y, r) {
     g.fillStyle(D.tierColors[tier], 0.38).fillCircle(x, y, r);
     g.fillStyle(0xffffff, 0.08).fillCircle(x, y, r * 0.8);
-    drawItem(g, tier, x, y, r * 0.62);
+    drawItem(g, tier, x, y, r * 0.72);
     g.lineStyle(r * 0.07, 0xffffff, 0.85).strokeCircle(x, y, r * 0.96);
     g.fillStyle(0xffffff, 0.6).fillEllipse(x - r * 0.38, y - r * 0.52, r * 0.42, r * 0.2);
     g.fillStyle(0xffffff, 0.5).fillCircle(x + r * 0.5, y + r * 0.45, r * 0.06);

@@ -16,7 +16,6 @@ window.EraArt = (function () {
     for (let i = 0; i < 7; i++) scene.load.image('sheet_era' + i, 'assets/sheets/era' + i + '.jpg');
     scene.load.image('sheet_items', 'assets/sheets/items.jpg');
     scene.load.image('ui_frame_src', 'assets/ui/frame.jpg');
-    scene.load.image('ui_portal_src', 'assets/ui/portal.jpg');
     scene.load.image('ui_fx_src', 'assets/ui/fx.jpg');
   }
 
@@ -147,7 +146,7 @@ window.EraArt = (function () {
     return parts.every(Boolean) ? parts : null;
   }
 
-  // ---------- Scene art: capsule frame (green background), portal / logo / effects (black background) ----------
+  // ---------- Scene art: capsule frame (green background), logo / effects (black background) ----------
   const isBlack = (px, p) => Math.max(px[p], px[p + 1], px[p + 2]) < 40;
   const isGreen = (px, p) => px[p + 1] > 120 && px[p + 1] > px[p] * 1.25 && px[p + 1] > px[p + 2] * 1.25;
 
@@ -189,7 +188,6 @@ window.EraArt = (function () {
     if (cutWhole(scene, 'ui_frame_src', 'ui_frame', isGreen, true)) {
       EraArt.frame = measureFrame(scene.textures.get('ui_frame').getSourceImage());
     }
-    cutWhole(scene, 'ui_portal_src', 'ui_portal', isBlack, false);
     if (!scene.textures.exists('fx_pop') && scene.textures.exists('ui_fx_src')) {
       try {
         const parts = segment(scene.textures.get('ui_fx_src').getSourceImage(), [4], isBlack);
@@ -267,7 +265,7 @@ window.EraArt = (function () {
     ctx.fillStyle = hex(ERA_DATA.tierColors[tier]);
     ctx.fill();
     ctx.globalAlpha = 1;
-    const box = r * 1.3;
+    const box = r * 1.5; // how much of the bubble the item fills
     const s = Math.min(box / item.width, box / item.height);
     ctx.drawImage(item, cx - (item.width * s) / 2, cx - (item.height * s) / 2, item.width * s, item.height * s);
     scene.textures.addCanvas(key, c);

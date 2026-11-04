@@ -56,11 +56,12 @@ class GameScene extends Phaser.Scene {
       this.frameBox = null;
     }
 
-    // Visible world area (capsule + frame + portal), fitted into the screen rect UIScene gives us.
+    // Visible world area (capsule + frame + held bubble), fitted into the screen rect UIScene gives us.
     const fb = this.frameBox;
     const left = Math.min(-40, fb ? fb.x - 6 : 0), right = Math.max(cap.width + 40, fb ? fb.x + fb.w + 6 : 0);
     const bottom = Math.max(cap.height + 40, fb ? fb.y + fb.h + 6 : 0);
-    this.view = { x: left, y: -150, w: right - left, h: bottom + 150 };
+    const top = Math.min(cap.dropY - Math.max(...C.bubbleRadius.slice(0, 3)) - 10, fb ? fb.y - 6 : 0);
+    this.view = { x: left, y: top, w: right - left, h: bottom - top };
 
     // ---- Walls ----
     const t = cap.wallThickness;
@@ -81,14 +82,6 @@ class GameScene extends Phaser.Scene {
     this.frameImg = fb ? this.add.image(fb.x, fb.y, 'ui_frame').setOrigin(0, 0).setScale(fb.sx, fb.sy) : null;
     this.drawCapsule();
     this.dangerG = this.add.graphics();
-    // Portal: the art spins inside a container squashed into an ellipse; drawn arcs if the art is missing.
-    this.portalG = this.add.graphics({ x: cap.width / 2, y: cap.dropY - 10 });
-    this.portalG.setScale(1, 0.32);
-    this.portalImg = null;
-    if (this.textures.exists('ui_portal')) {
-      this.portalImg = this.add.image(0, 0, 'ui_portal').setDisplaySize(cap.width * 1.02, cap.width * 1.02);
-      this.add.container(cap.width / 2, cap.dropY - 10, [this.portalImg]).setScale(1, 0.32);
-    }
     this.heldImg = this.add.image(0, cap.dropY, 'bubble0').setScale(1 / EraDraw.TEX_SCALE);
 
     // ---- State ----
@@ -171,33 +164,6 @@ class GameScene extends Phaser.Scene {
   applySkin(index) {
     this.skin = ERA_DATA.skin(index);
     this.drawCapsule();
-  }
-
-  drawPortal(time) {
-    // A storm makes the portal spin fast and flash storm colours.
-    const stormy = !!this.storm;
-    this.portalSpin = (this.portalSpin || 0) + (stormy ? 0.012 : 0.002) * (this.game.loop.delta || 16);
-    if (this.portalImg) {
-      this.portalImg.setRotation(this.portalSpin);
-      if (stormy) this.portalImg.setTint(Math.floor(time / 150) % 2 ? 0xff8866 : 0xffe066);
-      else this.portalImg.clearTint();
-      return;
-    }
-    const g = this.portalG;
-    const R = this.C.capsule.width * 0.5;
-    g.clear();
-    g.fillStyle(stormy ? 0xd0403f : 0x6a3fd0, 0.35).fillCircle(0, 0, R);
-    g.fillStyle(this.skin.portal[0], 0.15).fillCircle(0, 0, R * 0.6);
-    const spin = this.portalSpin;
-    const colors = stormy ? [0xffe066, 0xff4f6a, 0xffffff, 0xff9a3c] : this.skin.portal;
-    for (let i = 0; i < 8; i++) {
-      const r = R * (0.25 + i * 0.1);
-      const a = spin * (1 + i * 0.12) + i * 0.8;
-      g.lineStyle(10, colors[i % colors.length], 0.7);
-      g.beginPath();
-      g.arc(0, 0, r, a, a + 1.6, false);
-      g.strokePath();
-    }
   }
 
   drawAim() {
@@ -625,7 +591,6 @@ class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    this.drawPortal(time);
     if (!this.gameOver) {
       const dt = Math.min(delta, 100) / 1000;
       this.elapsed += dt;

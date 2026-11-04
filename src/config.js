@@ -3,19 +3,19 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.93',
+  version: '0.1.95',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
     width: 460,          // inner width
     height: 640,         // inner height
     wallThickness: 60,
-    dropY: -55,          // where the held bubble sits, inside the portal above the capsule
+    dropY: -65,          // where the held bubble sits, above the capsule
     dangerLineY: 85,     // Suika-style lose line, measured from the capsule top
   },
 
   // Bubble radius per tier (world units).
-  bubbleRadius: [22, 30, 39, 49, 60, 72, 86],
+  bubbleRadius: [31, 42, 55, 69, 84, 101, 120],
 
   // ---- Physics (Matter.js) — low friction and a little bounce so bubbles slide off each other ----
   physics: {
@@ -60,7 +60,7 @@ window.ERA_POP_CONFIG = {
     tip: { windowFraction: 0.33, rate: 0.5 },
   },
 
-  // ---- Time storms: every so often the portal glitches for a short burst with a twist ----
+  // ---- Time storms: every so often time glitches for a short burst with a twist ----
   storms: {
     firstAtSec: 120,
     everySec: 150,               // gap between the end of one storm and the start of the next
