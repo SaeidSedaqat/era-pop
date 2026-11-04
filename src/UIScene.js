@@ -25,10 +25,10 @@ class UIScene extends Phaser.Scene {
     this.bookText = txt([0.5, 0.5]);
     this.versionText = txt([0, 1]).setText('v' + this.C.version).setColor('#8f86b8').setStroke('#241b3d', 0);
 
-    this.avatarG = this.add.graphics().setDepth(1); // above card backgrounds, below order bubbles
     this.cards = [];
     for (let i = 0; i < this.C.customers.maxSlots; i++) {
       this.cards.push({
+        avatar: this.add.image(0, 0, 'cust_0_0').setVisible(false).setDepth(1), // below order bubble
         name: this.add.text(0, 0, '', { fontFamily: 'Arial, sans-serif', fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5, 0).setDepth(2),
         order: this.add.image(0, 0, 'bubble0').setVisible(false).setDepth(2),
         float: txt([0.5, 0.5]).setVisible(false).setDepth(3),
@@ -128,9 +128,7 @@ class UIScene extends Phaser.Scene {
     if (!G || !G.bubbles || !this.L) return;
     const L = this.L;
     const g = this.g;
-    const ag = this.avatarG;
     g.clear();
-    ag.clear();
 
     // HUD
     g.fillStyle(0x1a1430, 0.85).fillRect(L.hud.x, L.hud.y, L.hud.w, L.hud.h);
@@ -171,7 +169,6 @@ class UIScene extends Phaser.Scene {
 
   drawCard(i, r, c, isOpen, hovered) {
     const g = this.g;
-    const ag = this.avatarG;
     const card = this.cards[i];
     const CC = this.C.customers;
     const rad = Math.min(r.w, r.h) * 0.12;
@@ -179,6 +176,7 @@ class UIScene extends Phaser.Scene {
 
     if (!c) {
       g.fillStyle(isOpen ? 0x2f2552 : 0x1c1733, isOpen ? 0.9 : 0.6).fillRoundedRect(r.x, r.y, r.w, r.h, rad);
+      card.avatar.setVisible(false);
       card.name.setVisible(false);
       card.order.setVisible(false);
       card.float.setVisible(false);
@@ -217,11 +215,8 @@ class UIScene extends Phaser.Scene {
       ny = ay + ar + pad * 0.6;
     }
 
-    ag.setAlpha(1);
-    EraDraw.drawAvatar(ag, c.look, c.job, ax, ay, ar, false);
-    if (a < 1) { // fade avatar by painting the card colour over it
-      ag.fillStyle(0x3d3168, 1 - a).fillCircle(ax, ay, ar + 1);
-    }
+    card.avatar.setVisible(true).setTexture('cust_' + c.look + '_' + c.job).setPosition(ax, ay)
+      .setDisplaySize(ar * 2, ar * 2).setAlpha(a);
 
     card.order.setVisible(true).setTexture('bubble' + c.tier).setPosition(ox, oy)
       .setScale(or / (this.C.bubbleRadius[c.tier] * EraDraw.TEX_SCALE)).setAlpha(a);
@@ -452,7 +447,9 @@ class UIScene extends Phaser.Scene {
       const w = size - gap, h = size * aspect - gap;
       const found = EraStorage.hasInBook(l, j);
       g.fillStyle(found ? 0x4a3d7a : 0x221d38, 1).fillRoundedRect(x, y, w, h, w * 0.1);
-      EraDraw.drawAvatar(g, l, j, x + w / 2, y + w * 0.46, w * 0.38, !found);
+      const pic = this.add.image(x + w / 2, y + w * 0.46, (found ? 'cust_' : 'custlock_') + l + '_' + j)
+        .setDisplaySize(w * 0.76, w * 0.76).setDepth(101);
+      this.overlay.objs.push(pic);
       const t = this.ovText(found ? ERA_DATA.customerName(l, j) : '???', x + w / 2, y + w * 0.9, fs, found ? '#ffffff' : '#6d6590', [0.5, 0]);
       t.setStroke('#241b3d', 0).setWordWrapWidth(w * 0.94);
     });

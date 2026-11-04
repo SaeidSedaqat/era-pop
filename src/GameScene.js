@@ -6,12 +6,16 @@ class GameScene extends Phaser.Scene {
     super({ key: 'Game' });
   }
 
+  preload() {
+    EraArt.preload(this);
+  }
+
   create() {
     const C = window.ERA_POP_CONFIG;
     this.C = C;
     const cap = C.capsule;
 
-    EraDraw.makeBubbleTextures(this);
+    EraArt.build(this);
 
     // Visible world area (capsule + portal), fitted into the screen rect UIScene gives us.
     this.view = { x: -40, y: -150, w: cap.width + 80, h: cap.height + 190 };
