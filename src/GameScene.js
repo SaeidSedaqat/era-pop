@@ -76,7 +76,7 @@ class GameScene extends Phaser.Scene {
     this.matter.world.setGravity(0, C.physics.gravityY);
 
     // ---- Visuals ----
-    this.skin = ERA_DATA.skin(EraStorage.getSkin());
+    this.skin = { glass: 0xbfe9ff, frameTint: 0xffffff }; // capsule glass and frame colours
     this.backG = this.add.graphics();
     this.aimG = this.add.graphics();
     this.glowG = this.add.graphics(); // match glow, behind the bubbles
@@ -108,7 +108,6 @@ class GameScene extends Phaser.Scene {
     this.storm = null;
     this.nextStormAt = C.storms.firstAtSec;
     this.revivesUsed = 0;
-    this.doubled = false;
     this.tickAt = 0;
 
     this.matter.world.on('collisionstart', this.onCollide, this);
@@ -143,7 +142,7 @@ class GameScene extends Phaser.Scene {
   }
 
   // ---------- Drawing ----------
-  // Capsule glass, drawn in the equipped skin's colours (redrawn when the skin changes).
+  // Capsule glass.
   drawCapsule() {
     const { width: W, height: H } = this.C.capsule;
     const back = this.backG.clear();
@@ -152,7 +151,7 @@ class GameScene extends Phaser.Scene {
 
     const g = this.frontG.clear();
     if (this.frameImg) {
-      // Frame art (tinted by the skin) replaces the drawn walls and rim; keep thin glass edges.
+      // Frame art replaces the drawn walls and rim; keep thin glass edges.
       this.frameImg.setTint(this.skin.frameTint);
       g.lineStyle(4, this.skin.glass, 0.5).lineBetween(0, 0, 0, H).lineBetween(W, 0, W, H);
     } else {
@@ -165,11 +164,6 @@ class GameScene extends Phaser.Scene {
     // glass shine
     g.fillStyle(0xffffff, 0.08).fillRect(14, 20, 14, H - 60);
     g.fillStyle(0xffffff, 0.06).fillRect(36, 40, 6, H - 120);
-  }
-
-  applySkin(index) {
-    this.skin = ERA_DATA.skin(index);
-    this.drawCapsule();
   }
 
   drawAim() {
@@ -569,12 +563,8 @@ class GameScene extends Phaser.Scene {
     c.points = bonus + tip;
     c.tip = tip;
     EraAudio.play('serve');
-    let isNew = false, eraDone = false;
-    if (c.look !== c.job) {
-      isNew = EraStorage.addToBook(c.look, c.job);
-      eraDone = isNew && EraStorage.eraCount(c.look) === 6;
-    }
-    return { ok: true, slot, isNew, name: c.name, eraDone, look: c.look };
+    const isNew = c.look !== c.job && EraStorage.addToBook(c.look, c.job);
+    return { ok: true, slot, isNew, name: c.name };
   }
 
   addScore(n) {
@@ -621,9 +611,17 @@ class GameScene extends Phaser.Scene {
     this.scene.restart();
   }
 
+  // Leaving a run early (Restart in the pause menu) still keeps a new best score.
+  quitRun() {
+    if (this.score > this.best) {
+      this.best = this.score;
+      EraStorage.saveBest(this.best);
+    }
+  }
+
   // ---------- Rewarded ad results ----------
   canRevive() {
-    return this.gameOver && !this.doubled && this.revivesUsed < this.C.ads.revivesPerRun;
+    return this.gameOver && this.revivesUsed < this.C.ads.revivesPerRun;
   }
 
   // Clear the top of the capsule and carry on.
@@ -645,21 +643,6 @@ class GameScene extends Phaser.Scene {
     this.pendingDrop = false;
     this.matter.world.resume();
     EraAudio.startMusic();
-  }
-
-  canDoubleScore() {
-    return this.gameOver && this.C.ads.doubleScore && !this.doubled && this.score > 0;
-  }
-
-  // Doubles the final score; this ends the run (no revive afterwards).
-  doubleScore() {
-    if (!this.canDoubleScore()) return;
-    this.doubled = true;
-    this.score *= 2;
-    if (this.score > this.best) {
-      this.best = this.score;
-      EraStorage.saveBest(this.best);
-    }
   }
 
   update(time, delta) {

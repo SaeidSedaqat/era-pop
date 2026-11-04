@@ -3,6 +3,66 @@
 
 const FONT = ERA_FONTS.title;
 
+// White icons for the square icon buttons, drawn centred on (cx, cy) inside a box of size s.
+// off = true adds a cross (a switched-off toggle).
+const ICONS = {
+  pause(g, cx, cy, s) {
+    g.fillStyle(0xffffff, 1).fillRoundedRect(cx - s * 0.32, cy - s * 0.36, s * 0.22, s * 0.72, s * 0.05)
+      .fillRoundedRect(cx + s * 0.1, cy - s * 0.36, s * 0.22, s * 0.72, s * 0.05);
+  },
+  play(g, cx, cy, s) {
+    g.fillStyle(0xffffff, 1).fillTriangle(cx - s * 0.26, cy - s * 0.38, cx - s * 0.26, cy + s * 0.38, cx + s * 0.38, cy);
+  },
+  music(g, cx, cy, s, off) {
+    const lw = Math.max(2, s * 0.09);
+    g.fillStyle(0xffffff, 1).fillEllipse(cx - s * 0.24, cy + s * 0.26, s * 0.28, s * 0.22)
+      .fillEllipse(cx + s * 0.22, cy + s * 0.16, s * 0.28, s * 0.22)
+      .fillRect(cx - s * 0.13, cy - s * 0.3, lw, s * 0.56)
+      .fillRect(cx + s * 0.33, cy - s * 0.4, lw, s * 0.56);
+    g.fillTriangle(cx - s * 0.13, cy - s * 0.3, cx + s * 0.33 + lw, cy - s * 0.4, cx + s * 0.33 + lw, cy - s * 0.24)
+      .fillTriangle(cx - s * 0.13, cy - s * 0.3, cx - s * 0.13, cy - s * 0.14, cx + s * 0.33 + lw, cy - s * 0.24);
+    if (off) ICONS.cross(g, cx, cy, s);
+  },
+  sfx(g, cx, cy, s, off) {
+    cx -= s * 0.12;
+    g.fillStyle(0xffffff, 1).fillRect(cx - s * 0.42, cy - s * 0.15, s * 0.22, s * 0.3);
+    g.fillTriangle(cx - s * 0.22, cy - s * 0.15, cx + s * 0.08, cy - s * 0.42, cx + s * 0.08, cy + s * 0.42);
+    g.fillTriangle(cx - s * 0.22, cy - s * 0.15, cx - s * 0.22, cy + s * 0.15, cx + s * 0.08, cy + s * 0.42);
+    g.lineStyle(Math.max(2, s * 0.09), 0xffffff, 1);
+    if (off) {
+      g.lineBetween(cx + s * 0.2, cy - s * 0.18, cx + s * 0.52, cy + s * 0.18).lineBetween(cx + s * 0.2, cy + s * 0.18, cx + s * 0.52, cy - s * 0.18);
+    } else {
+      for (const k of [0.25, 0.45]) {
+        g.beginPath();
+        g.arc(cx + s * 0.08, cy, s * k, -0.75, 0.75);
+        g.strokePath();
+      }
+    }
+  },
+  book(g, cx, cy, s) {
+    const lw = Math.max(2, s * 0.07);
+    g.fillStyle(0xffffff, 1).fillRoundedRect(cx - s * 0.42, cy - s * 0.3, s * 0.4, s * 0.6, s * 0.05)
+      .fillRoundedRect(cx + s * 0.02, cy - s * 0.3, s * 0.4, s * 0.6, s * 0.05);
+    g.lineStyle(lw, 0x6a3fd0, 1);
+    for (const k of [-0.14, 0, 0.14]) {
+      g.lineBetween(cx - s * 0.34, cy + s * k, cx - s * 0.1, cy + s * k).lineBetween(cx + s * 0.1, cy + s * k, cx + s * 0.34, cy + s * k);
+    }
+  },
+  restart(g, cx, cy, s) {
+    const r = s * 0.3, lw = Math.max(2, s * 0.11);
+    g.lineStyle(lw, 0xffffff, 1);
+    g.beginPath();
+    g.arc(cx, cy, r, -Math.PI * 0.35, Math.PI * 1.45);
+    g.strokePath();
+    const ax = cx + r * Math.cos(-Math.PI * 0.35), ay = cy + r * Math.sin(-Math.PI * 0.35);
+    g.fillStyle(0xffffff, 1).fillTriangle(ax - s * 0.2, ay - s * 0.06, ax + s * 0.06, ay - s * 0.2, ax + s * 0.08, ay + s * 0.12);
+  },
+  cross(g, cx, cy, s) {
+    g.lineStyle(Math.max(3, s * 0.1), 0xff4f6a, 1).lineBetween(cx - s * 0.42, cy - s * 0.42, cx + s * 0.42, cy + s * 0.42);
+  },
+};
+
+
 class UIScene extends Phaser.Scene {
   constructor() {
     super({ key: 'UI' });
@@ -92,9 +152,9 @@ class UIScene extends Phaser.Scene {
       L.scoreMaxW = this.nextLabel.x - this.nextLabel.width / 2 - pad * 4;
       L.next = { x: W * 0.5 + hudH * 0.15, y: hudH * 0.5, r: hudH * 0.36 };
       L.bookBtn = { x: W - pad * 2 - W * 0.26, y: hudH * 0.18, w: W * 0.26, h: hudH * 0.64 };
-      // Sound toggle centred in the gap between the NEXT bubble and the Book button.
+      // Pause button centred in the gap between the NEXT bubble and the Book button.
       const mw = Math.min(hudH * 0.64, (L.bookBtn.x - (L.next.x + L.next.r)) * 0.8);
-      L.muteBtn = { x: (L.next.x + L.next.r + L.bookBtn.x) / 2 - mw / 2, y: hudH * 0.5 - mw / 2, w: mw, h: mw };
+      L.pauseBtn = { x: (L.next.x + L.next.r + L.bookBtn.x) / 2 - mw / 2, y: hudH * 0.5 - mw / 2, w: mw, h: mw };
       this.bookText.setFontSize(Math.round(fs * 0.7));
       this.versionText.setFontSize(Math.max(10, Math.round(fs * 0.45))).setPosition(pad, H - pad * 0.3);
     } else {
@@ -118,7 +178,7 @@ class UIScene extends Phaser.Scene {
       this.nextLabel.setFontSize(Math.round(fs * 0.7)).setPosition(side / 2, H * 0.42);
       L.next = { x: side / 2, y: H * 0.53, r: Math.min(side * 0.18, H * 0.08) };
       L.bookBtn = { x: side * 0.12, y: H * 0.7, w: side * 0.76, h: Math.min(H * 0.1, side * 0.3) };
-      L.muteBtn = { x: side / 2 - L.bookBtn.h * 0.5, y: L.bookBtn.y + L.bookBtn.h * 1.3, w: L.bookBtn.h, h: L.bookBtn.h };
+      L.pauseBtn = { x: side / 2 - L.bookBtn.h * 0.5, y: L.bookBtn.y + L.bookBtn.h * 1.3, w: L.bookBtn.h, h: L.bookBtn.h };
       this.bookText.setFontSize(Math.round(fs * 0.7));
       this.versionText.setFontSize(Math.max(10, Math.round(fs * 0.45))).setPosition(pad, H - pad);
     }
@@ -161,8 +221,8 @@ class UIScene extends Phaser.Scene {
     this.nextImg.setScale(L.next.r / nr);
     g.fillStyle(0xffffff, 0.08).fillCircle(L.next.x, L.next.y, L.next.r * 1.1);
     this.button(g, L.bookBtn, 0x6a3fd0);
-    this.button(g, L.muteBtn, EraAudio.isMuted() ? 0x5a5478 : 0x2fb8b0);
-    this.drawSpeaker(g, L.muteBtn, EraAudio.isMuted());
+    this.button(g, L.pauseBtn, 0x2fb8b0);
+    ICONS.pause(g, L.pauseBtn.x + L.pauseBtn.w / 2, L.pauseBtn.y + L.pauseBtn.h / 2, Math.min(L.pauseBtn.w, L.pauseBtn.h) * 0.6);
     this.bookText.setText('BOOK ' + EraStorage.bookCount() + '/42');
 
     // Customer cards
@@ -219,11 +279,21 @@ class UIScene extends Phaser.Scene {
     if (c.state === 'leaving') a = Math.max(0, 1 - c.leaveT / CC.leaveSec);
 
     g.fillStyle(0x3d3168, 0.95 * a + 0.05).fillRoundedRect(r.x, r.y, r.w, r.h, rad);
-    let border = null;
-    if (hovered) border = this.press && this.press.b.tier === c.tier ? 0x62ff8a : 0xff4f6a;
+    // While a bubble is dragged, every customer waiting for that item flashes.
+    const dragTier = this.press && this.press.dragging ? this.press.b.tier : -1;
+    const wants = c.state === 'waiting' && c.tier === dragTier;
+    let border = null, lw = Math.max(3, r.h * 0.03), ba = 1;
+    if (hovered) border = wants ? 0x62ff8a : 0xff4f6a;
+    else if (wants) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.time.now * 0.02);
+      border = 0xffe066;
+      lw *= 1.6;
+      ba = 0.35 + 0.65 * pulse;
+      g.fillStyle(0xffe066, 0.12 + 0.18 * pulse).fillRoundedRect(r.x, r.y, r.w, r.h, rad);
+    }
     else if (c.result === 'served') border = 0x62ff8a;
     else if (c.result === 'timeout') border = 0xff4f6a;
-    if (border !== null) g.lineStyle(Math.max(3, r.h * 0.03), border, 1).strokeRoundedRect(r.x, r.y, r.w, r.h, rad);
+    if (border !== null) g.lineStyle(lw, border, ba).strokeRoundedRect(r.x, r.y, r.w, r.h, rad);
 
     const pad = Math.min(r.w, r.h) * 0.08;
     const horizontal = r.w > r.h * 1.3;
@@ -293,7 +363,10 @@ class UIScene extends Phaser.Scene {
   onDown(p) {
     if (this.ad) return;
     if (this.overlay) { this.overlayClick(p.x, p.y); return; }
-    if (this.inRect(this.L.muteBtn, p.x, p.y)) { EraAudio.toggleMute(); EraAudio.play('click'); return; }
+    if (this.inRect(this.L.pauseBtn, p.x, p.y)) {
+      if (!this.G.gameOver) { EraAudio.play('click'); this.openOverlay('pause'); }
+      return;
+    }
     if (this.inRect(this.L.bookBtn, p.x, p.y)) { EraAudio.play('click'); this.openOverlay('book'); return; }
     const G = this.G;
     if (G.gameOver || !this.inRect(this.L.cap, p.x, p.y)) return;
@@ -366,8 +439,7 @@ class UIScene extends Phaser.Scene {
 
   onServed(res) {
     if (res.isNew) EraAudio.play('newcard');
-    if (res.eraDone) this.toast(ERA_DATA.eras[res.look].short + ' look complete!\nNew capsule skin in the Book', 3000);
-    else if (res.isNew) this.toast('New in your Customer Book:\n' + res.name + '!', 2200);
+    if (res.isNew) this.toast('New in your Customer Book:\n' + res.name + '!', 2200);
   }
 
   cardFx(key, r) {
@@ -387,12 +459,14 @@ class UIScene extends Phaser.Scene {
   // ---------- Overlays ----------
   openOverlay(type) {
     const G = this.G;
-    if (type === 'book' && !G.gameOver && !this.overlay) {
+    if ((type === 'book' || type === 'pause') && !G.gameOver && !this.overlay) {
       this.cancelPress();
       G.scene.pause();
     }
     this.overlay = { type, objs: [], buttons: [] };
     if (type === 'gameover') this.buildGameOver();
+    else if (type === 'pause') this.buildPause();
+    else if (type === 'story') this.buildStory();
     else this.buildBook();
   }
 
@@ -401,7 +475,7 @@ class UIScene extends Phaser.Scene {
     const type = this.overlay.type;
     for (const o of this.overlay.objs) o.destroy();
     this.overlay = null;
-    if (!keepPaused && type === 'book' && !this.G.gameOver) this.G.scene.resume();
+    if (!keepPaused && (type === 'book' || type === 'pause') && !this.G.gameOver) this.G.scene.resume();
   }
 
   overlayClick(x, y) {
@@ -409,10 +483,17 @@ class UIScene extends Phaser.Scene {
     for (const b of ov.buttons) {
       if (this.inRect(b.rect, x, y)) { EraAudio.play('click'); b.fn(); return; }
     }
+    if (ov.type === 'story') { EraAudio.play('click'); this.closeOverlay(true); this.openOverlay('book'); return; }
     if (ov.type === 'book' && !this.inRect(ov.panel, x, y)) this.closeBookOverlay();
   }
 
   closeBookOverlay() {
+    if (this.bookFromPause) {
+      this.bookFromPause = false;
+      this.closeOverlay(true);
+      this.openOverlay('pause');
+      return;
+    }
     this.closeOverlay();
     if (this.G.gameOver) this.openOverlay('gameover');
   }
@@ -444,15 +525,14 @@ class UIScene extends Phaser.Scene {
     g.lineStyle(Math.max(3, pw * 0.01), 0xbfe9ff, 0.8).strokeRoundedRect(px, py, pw, ph, pw * 0.06);
     this.overlay.panel = { x: px, y: py, w: pw, h: ph };
     this.ovText('CAPSULE FULL!', W / 2, py + ph * 0.1, pw * 0.09, '#ffe066');
-    this.ovText(G.doubled ? 'SCORE x2' : 'SCORE', W / 2, py + ph * 0.21, pw * 0.05, G.doubled ? '#62ff8a' : '#cfc6ff');
+    this.ovText('SCORE', W / 2, py + ph * 0.21, pw * 0.05, '#cfc6ff');
     this.ovText(String(G.score), W / 2, py + ph * 0.29, pw * 0.12);
     this.ovText('BEST ' + G.best, W / 2, py + ph * 0.38, pw * 0.055, '#cfc6ff');
     const bw = pw * 0.76, bh = ph * 0.12;
 
-    // Rewarded ads: revive (clears the top of the capsule) and double the final score.
+    // Rewarded ad: revive (clears the top of the capsule).
     const offers = [];
     if (G.canRevive()) offers.push({ label: 'REVIVE', color: 0xf28b30, fn: () => this.showAd('rewarded', () => { this.closeOverlay(); G.revive(); }) });
-    if (G.canDoubleScore()) offers.push({ label: '2x SCORE', color: 0xe0ac34, fn: () => this.showAd('rewarded', () => { G.doubleScore(); this.closeOverlay(true); this.openOverlay('gameover'); }) });
     const gap = pw * 0.04, ow = offers.length > 1 ? (bw - gap) / 2 : bw;
     offers.forEach((o, i) => {
       const rect = { x: W / 2 - bw / 2 + i * (ow + gap), y: py + ph * 0.46, w: ow, h: bh };
@@ -460,7 +540,7 @@ class UIScene extends Phaser.Scene {
       this.adBadge(g, rect);
     });
 
-    this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.64, w: bw, h: bh }, 'PLAY AGAIN', 0x2fb86a, () => {
+    this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.64, w: bw, h: bh }, 'RESTART', 0x2fb86a, () => {
       // Interstitial between sessions.
       this.gamesSinceAd = (this.gamesSinceAd || 0) + 1;
       const restart = () => { this.closeOverlay(); this.G.restartGame(); };
@@ -485,22 +565,40 @@ class UIScene extends Phaser.Scene {
     this.ovText('AD', x + w / 2, y + h / 2, h * 0.6, '#241b3d').setStroke('#241b3d', 0).setDepth(102);
   }
 
-  // Sound toggle icon: a speaker with waves, or with a cross when muted.
-  drawSpeaker(g, r, muted) {
-    const s = Math.min(r.w, r.h) * 0.62, cx = r.x + r.w / 2 - s * 0.12, cy = r.y + r.h / 2;
-    g.fillStyle(0xffffff, 1).fillRect(cx - s * 0.42, cy - s * 0.15, s * 0.22, s * 0.3);
-    g.fillTriangle(cx - s * 0.22, cy - s * 0.15, cx + s * 0.08, cy - s * 0.42, cx + s * 0.08, cy + s * 0.42);
-    g.fillTriangle(cx - s * 0.22, cy - s * 0.15, cx - s * 0.22, cy + s * 0.15, cx + s * 0.08, cy + s * 0.42);
-    const lw = Math.max(2, s * 0.09);
-    g.lineStyle(lw, 0xffffff, 1);
-    if (muted) {
-      g.lineBetween(cx + s * 0.2, cy - s * 0.18, cx + s * 0.52, cy + s * 0.18).lineBetween(cx + s * 0.2, cy + s * 0.18, cx + s * 0.52, cy - s * 0.18);
-    } else {
-      for (const k of [0.25, 0.45]) {
-        g.beginPath();
-        g.arc(cx + s * 0.08, cy, s * k, -0.75, 0.75);
-        g.strokePath();
-      }
+  // Pause menu: icon buttons in the HUD button style.
+  //   row 1: Play (centre) · row 2: Music, SFX · row 3: Book, Restart
+  buildPause() {
+    const { W, H } = this.L;
+    const g = this.add.graphics().setDepth(100);
+    this.overlay.objs.push(g);
+    g.fillStyle(0x0b0818, 0.75).fillRect(0, 0, W, H);
+    const pw = Math.min(W * 0.8, H * 0.55), ph = pw * 1.35;
+    const px = (W - pw) / 2, py = (H - ph) / 2;
+    g.fillStyle(0x2f2552, 1).fillRoundedRect(px, py, pw, ph, pw * 0.06);
+    g.lineStyle(Math.max(3, pw * 0.01), 0xbfe9ff, 0.8).strokeRoundedRect(px, py, pw, ph, pw * 0.06);
+    this.overlay.panel = { x: px, y: py, w: pw, h: ph };
+    this.ovText('PAUSED', W / 2, py + ph * 0.09, pw * 0.1, '#ffe066');
+
+    const s = pw * 0.27, dx = pw * 0.2;
+    const off = 0x5a5478;
+    const items = [
+      { x: W / 2, row: 0, label: 'PLAY', color: 0x2fb86a, icon: 'play', fn: () => this.closeOverlay() },
+      { x: W / 2 - dx, row: 1, label: 'MUSIC', color: EraAudio.musicOn ? 0x2fb8b0 : off, icon: 'music', off: !EraAudio.musicOn,
+        fn: () => { EraAudio.toggleMusic(); this.closeOverlay(true); this.openOverlay('pause'); } },
+      { x: W / 2 + dx, row: 1, label: 'SFX', color: EraAudio.sfxOn ? 0x2fb8b0 : off, icon: 'sfx', off: !EraAudio.sfxOn,
+        fn: () => { EraAudio.toggleSfx(); EraAudio.play('click'); this.closeOverlay(true); this.openOverlay('pause'); } },
+      { x: W / 2 - dx, row: 2, label: 'BOOK', color: 0x6a3fd0, icon: 'book',
+        fn: () => { this.bookFromPause = true; this.closeOverlay(true); this.openOverlay('book'); } },
+      { x: W / 2 + dx, row: 2, label: 'RESTART', color: 0xff4f6a, icon: 'restart',
+        fn: () => { this.closeOverlay(); this.G.quitRun(); this.G.restartGame(); } },
+    ];
+    for (const it of items) {
+      const cy = py + ph * (0.3 + it.row * 0.27);
+      const rect = { x: it.x - s / 2, y: cy - s / 2, w: s, h: s };
+      this.button(g, rect, it.color);
+      ICONS[it.icon](g, it.x, cy, s * 0.6, it.off);
+      this.ovText(it.label, it.x, rect.y + s * 1.2, s * 0.17, '#cfc6ff');
+      this.overlay.buttons.push({ rect, fn: it.fn });
     }
   }
 
@@ -567,44 +665,6 @@ class UIScene extends Phaser.Scene {
   }
 
 
-  // Capsule skins: the default plus one per era, unlocked by collecting all 6 hybrids with that era's look.
-  buildSkinStrip(g, x, y, w, h) {
-    const current = EraStorage.getSkin();
-    const lf = Math.max(9, h * 0.16);
-    this.ovText('CAPSULE SKINS', x, y + lf * 0.6, lf, '#cfc6ff', [0, 0.5]);
-    const n = 8, cell = w / n, r = Math.min(cell * 0.36, h * 0.28);
-    const cy = y + lf * 1.4 + r;
-    for (let i = 0; i < n; i++) {
-      const idx = i - 1; // -1 = default
-      const cx = x + cell * (i + 0.5);
-      const count = idx < 0 ? 6 : EraStorage.eraCount(idx);
-      const unlocked = count === 6;
-      const skin = ERA_DATA.skin(idx);
-      if (unlocked) {
-        g.fillStyle(0x0f1630, 1).fillCircle(cx, cy, r);
-        skin.portal.forEach((col, k) => g.lineStyle(r * 0.16, col, 1).strokeCircle(cx, cy, r * (0.25 + k * 0.17)));
-        g.lineStyle(r * 0.18, skin.glass, 1).strokeCircle(cx, cy, r);
-      } else {
-        g.fillStyle(0x221d38, 1).fillCircle(cx, cy, r);
-        this.ovText(count + '/6', cx, cy, r * 0.5, '#6d6590');
-      }
-      if (idx === current) g.lineStyle(Math.max(2, r * 0.12), 0xffffff, 1).strokeCircle(cx, cy, r * 1.22);
-      const label = idx < 0 ? 'Classic' : ERA_DATA.eras[idx].short;
-      this.ovText(label, cx, cy + r * 1.3, Math.max(8, r * 0.38), unlocked ? '#ffffff' : '#6d6590', [0.5, 0]);
-      if (unlocked) {
-        this.overlay.buttons.push({
-          rect: { x: cx - cell / 2, y: cy - r * 1.3, w: cell, h: r * 3 },
-          fn: () => {
-            EraStorage.setSkin(idx);
-            this.G.applySkin(idx);
-            this.closeOverlay(true);
-            this.openOverlay('book');
-          },
-        });
-      }
-    }
-  }
-
   buildBook() {
     const { W, H } = this.L;
     const g = this.add.graphics().setDepth(100);
@@ -626,9 +686,7 @@ class UIScene extends Phaser.Scene {
     // Collection: the 42 hybrid customers as cards, undiscovered ones shown as silhouettes.
     const entries = [];
     for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) if (l !== j) entries.push([l, j]);
-    const stripH = Math.min(ph * 0.15, pw * 0.16);
-    this.buildSkinStrip(g, px + pw * 0.03, py + ph - stripH - pw * 0.02, pw * 0.94, stripH);
-    const gx = px + pw * 0.03, gy = py + titleH, gw = pw * 0.94, gh = ph - titleH - stripH - pw * 0.05;
+    const gx = px + pw * 0.03, gy = py + titleH, gw = pw * 0.94, gh = ph - titleH - pw * 0.04;
     const aspect = 1.3; // card height / width
     let cols = 7, size = 0;
     for (let c = 3; c <= 14; c++) {
@@ -650,6 +708,41 @@ class UIScene extends Phaser.Scene {
       this.overlay.objs.push(pic);
       const t = this.ovText(found ? ERA_DATA.customerName(l, j) : '???', x + w / 2, y + w * 0.9, fs, found ? '#ffffff' : '#6d6590', [0.5, 0]);
       t.setStroke('#241b3d', 0).setFontFamily(ERA_FONTS.body).setFontStyle('bold').setWordWrapWidth(w * 0.94);
+      // Unlocked customers open their story when tapped.
+      if (found) this.overlay.buttons.push({ rect: { x, y, w, h }, fn: () => { this.storyOf = [l, j]; this.closeOverlay(true); this.openOverlay('story'); } });
     });
+  }
+
+  // A collected customer's portrait, name and funny story. Any tap goes back to the Book.
+  buildStory() {
+    const { W, H } = this.L;
+    const [l, j] = this.storyOf;
+    const g = this.add.graphics().setDepth(100);
+    this.overlay.objs.push(g);
+    g.fillStyle(0x0b0818, 0.85).fillRect(0, 0, W, H);
+    const pw = Math.min(W * 0.88, H * 0.7), ph = Math.min(H * 0.86, pw * 1.45);
+    const px = (W - pw) / 2, py = (H - ph) / 2;
+    g.fillStyle(0x2f2552, 1).fillRoundedRect(px, py, pw, ph, pw * 0.05);
+    g.lineStyle(Math.max(3, pw * 0.01), 0xbfe9ff, 0.8).strokeRoundedRect(px, py, pw, ph, pw * 0.05);
+    this.overlay.panel = { x: px, y: py, w: pw, h: ph };
+    const ps = Math.min(pw * 0.48, ph * 0.36);
+    const pic = this.add.image(W / 2, py + ph * 0.05 + ps / 2, 'cust_' + l + '_' + j).setDisplaySize(ps, ps).setDepth(101);
+    this.overlay.objs.push(pic);
+    let y = py + ph * 0.05 + ps + ph * 0.03;
+    const name = this.ovText(ERA_DATA.customerName(l, j), W / 2, y, pw * 0.065, '#ffe066', [0.5, 0]).setWordWrapWidth(pw * 0.9);
+    y += name.height + ph * 0.03;
+    // Story text shrinks until it fits above the hint line.
+    const maxH = py + ph * 0.9 - y;
+    let fs = pw * 0.052;
+    const story = this.add.text(px + pw * 0.08, y, ERA_DATA.story(l, j), {
+      fontFamily: ERA_FONTS.body, fontStyle: 'bold', fontSize: Math.round(fs) + 'px', color: '#ffffff',
+      lineSpacing: fs * 0.25, wordWrap: { width: pw * 0.84 },
+    }).setDepth(101);
+    while (story.height > maxH && fs > 9) {
+      fs *= 0.92;
+      story.setFontSize(Math.round(fs)).setLineSpacing(fs * 0.25);
+    }
+    this.overlay.objs.push(story);
+    this.ovText('Tap to go back', W / 2, py + ph * 0.95, pw * 0.035, '#8f86b8').setStroke('#241b3d', 0);
   }
 }

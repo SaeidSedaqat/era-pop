@@ -10,12 +10,13 @@ Built with [Phaser 4.2.1](https://phaser.io) (vendored in `lib/`) and Matter.js 
 
 - **Drop:** touch or click inside the capsule, move to aim, release to drop. With a mouse, the bubble follows the cursor.
 - **Merge:** two identical bubbles that touch merge into the next tier: Wheel, Cart, Carriage, Bicycle, Car, Plane, Rocket. Two Rockets merge and disappear. Merges in quick succession build a combo multiplier.
-- **Serve:** drag a bubble onto the customer who ordered it (bubbles someone ordered glow). Serve fast for a tip. A plain tap anywhere in the capsule (even on a bubble) just drops.
+- **Serve:** drag a bubble onto the customer who ordered it (bubbles someone ordered glow, and while you drag one, every customer who wants it flashes). Serve fast for a tip. A plain tap anywhere in the capsule (even on a bubble) just drops.
 - Orders time out and cost points. You lose when the stack stays above the dashed line.
 - **Time storms:** every few minutes the portal glitches for 15 s: an era invasion, a merge frenzy, or a rush hour, each with bonus rewards.
-- **Customer Book:** every hybrid customer you serve is collected (42 in total) and saved in your browser. Collecting all 6 hybrids with one era's look unlocks that era's capsule skin.
-- **Sound:** background music and sound effects (all CC0, credits in [`assets/audio/CREDITS.txt`](assets/audio/CREDITS.txt)). The speaker button mutes everything and is remembered.
-- **Ads (placeholders):** no ad network is wired in. A 3-second countdown screen stands in for each ad: an interstitial before "Play again", and rewarded ads on the game over screen for **Revive** (clears the top of the capsule, once per run) and **2x score** (doubles the final score, ends the run).
+- **Customer Book:** every hybrid customer you serve is collected (42 in total) and saved in your browser. Tap a collected card in the Book to read that customer's funny story.
+- **Pause:** the pause button next to the Book opens a menu: Play, Music on/off, SFX on/off, Book and Restart. Music and SFX choices are remembered.
+- **Sound:** background music and sound effects (all CC0, credits in [`assets/audio/CREDITS.txt`](assets/audio/CREDITS.txt)).
+- **Ads (placeholders):** no ad network is wired in. A 3-second countdown screen stands in for each ad: an interstitial before "Restart" on the game over screen, and a rewarded ad for **Revive** (clears the top of the capsule, once per run).
 
 ## Tuning
 
@@ -29,7 +30,7 @@ Every balancing value (scoring, timers, penalties, order ramp-up, customer slots
 | `src/data.js` | Merge chain and eras |
 | `src/draw.js` | Code-drawn fallback art (used if a sheet is missing) |
 | `src/art.js` | Slices the art in `assets/` into textures at load time |
-| `src/audio.js` | Music, sound effects and mute |
+| `src/audio.js` | Music, sound effects, music/SFX switches |
 | `src/BgScene.js` | Background picture behind everything |
 | `src/storage.js` | Best score and Customer Book (localStorage) |
 | `src/GameScene.js` | Capsule, physics, merging, customers, scoring |

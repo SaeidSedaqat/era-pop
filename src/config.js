@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.118',
+  version: '0.1.141',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -124,7 +124,6 @@ window.ERA_POP_CONFIG = {
     interstitialEveryGames: 1,   // show an interstitial before every Nth "Play again"
     revivesPerRun: 1,            // rewarded "Revive" uses per run
     reviveClearDepth: 260,       // revive removes every bubble whose top is within this distance below the danger line (or above it)
-    doubleScore: true,           // rewarded "2x score" on the game over screen (once per run, ends the run)
   },
 
   // ---- Input ----

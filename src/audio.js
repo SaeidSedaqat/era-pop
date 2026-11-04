@@ -16,12 +16,13 @@ window.EraAudio = {
   init(scene) {
     this.sound = scene.sound;
     this.cache = scene.cache.audio;
-    this.muted = EraStorage.getMuted();
-    this.sound.mute = this.muted;
+    const s = EraStorage.getAudio();
+    this.musicOn = s.music;
+    this.sfxOn = s.sfx;
   },
 
   play(key, cfg) {
-    if (!this.sound || !this.cache.exists('sfx_' + key)) return;
+    if (!this.sfxOn || !this.sound || !this.cache.exists('sfx_' + key)) return;
     const A = window.ERA_POP_CONFIG.audio;
     const vol = (A.sfxVolume[key] !== undefined ? A.sfxVolume[key] : A.sfxVolume.default);
     this.sound.play('sfx_' + key, Object.assign({ volume: vol }, cfg));
@@ -29,9 +30,10 @@ window.EraAudio = {
 
   // Starts (or resumes) the background loop; waits for the browser's first tap if audio is still locked.
   startMusic() {
-    if (!this.sound || !this.cache.exists('music')) return;
+    if (!this.musicOn || !this.sound || !this.cache.exists('music')) return;
     if (!this.music) this.music = this.sound.add('music', { loop: true, volume: window.ERA_POP_CONFIG.audio.musicVolume });
     const go = () => {
+      if (!this.musicOn) return;
       if (this.music.isPaused) this.music.resume();
       else if (!this.music.isPlaying) this.music.play();
     };
@@ -43,15 +45,19 @@ window.EraAudio = {
     if (this.music && this.music.isPlaying) this.music.pause();
   },
 
-  isMuted() {
-    return !!this.muted;
+  toggleMusic() {
+    this.musicOn = !this.musicOn;
+    if (this.musicOn) this.startMusic();
+    else this.pauseMusic();
+    this.save();
   },
 
-  toggleMute() {
-    if (!this.sound) return;
-    // Phaser's mute getter reads the audio gain, which only updates on the next audio frame: keep our own flag.
-    this.muted = !this.muted;
-    this.sound.mute = this.muted;
-    EraStorage.setMuted(this.muted);
+  toggleSfx() {
+    this.sfxOn = !this.sfxOn;
+    this.save();
+  },
+
+  save() {
+    EraStorage.setAudio({ music: this.musicOn, sfx: this.sfxOn });
   },
 };

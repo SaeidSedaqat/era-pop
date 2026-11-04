@@ -31,12 +31,54 @@ window.ERA_DATA = {
       bg: 0x1d2b4f, main: 0xdfe6ee, accent: 0x22e3ff, pattern: 'circuit' },
   ],
 
-  // Capsule skins: -1 is the default; 0–6 unlock by collecting all 6 hybrids with that era's look.
-  skin(index) {
-    const e = this.eras[index];
-    if (!e) return { glass: 0xbfe9ff, frameTint: 0xffffff, portal: [0x22e3ff, 0xff6fa5, 0xf2d27a, 0xb07ee0] };
-    const glass = e.main === 0x3b3036 ? e.accent : e.main;
-    return { glass, frameTint: glass, portal: [e.accent, e.bg, e.main, 0xffffff] };
+  // One funny story per hybrid customer, keyed 'look-job'. Shown when a collected card is tapped in the Book.
+  stories: {
+    '0-1': 'Ug planted rocks for three seasons, waiting for a rock tree. When a carrot finally popped up by accident, he named it Kevin and refused to eat it.',
+    '0-2': 'He jousts on a very confused goat, and his armor is mostly bark. He has never lost a duel, mainly because nobody understands the rules he grunts.',
+    '0-3': 'His monocle is made of river ice and melts every afternoon. Tea time is strictly at noon, which he checks by pointing a stick at the sun and shouting.',
+    '0-4': 'He styles his hair with mammoth fat and combs it with a fish bone. His leather jacket used to be a very angry bear, and the collar still growls.',
+    '0-5': 'He flies by jumping off cliffs and flapping really hard. His logbook has one entry: "Down." He considers this a very successful career.',
+    '0-6': 'He thinks the Moon is a big tasty rock and has been trying to lick it ever since. Mission Control has asked him, again, to stop licking the window.',
+    '1-0': 'He lives in a cave but insists it is a pyramid "turned inside out." His grocery lists are carved on the walls, and they are all drawings of rocks.',
+    '1-2': 'He rides a camel into battle and polishes his armor with sand, which only makes it scratchier. His sworn enemy is one particularly rude crocodile.',
+    '1-3': 'He wraps his tea bags like tiny mummies before steeping them. He once tipped a waiter with a sacred cat and was politely asked to leave.',
+    '1-4': 'He drag-races chariots down the Nile road every Friday night. His hair is held up by a pharaoh-sized amount of gel and one beetle who lives there.',
+    '1-5': 'He tried to fly a pyramid by tilting it really hard. It is still on the runway, making it the slowest takeoff in history: four thousand years and counting.',
+    '1-6': 'He packed his space capsule with everything needed for the afterlife, including a full-size boat. Mission Control had questions. So many questions.',
+    '2-0': 'Sir Grug was knighted for discovering fire, then immediately set the Round Table on fire. It is now called the Slightly Shorter Table.',
+    '2-1': 'He guards his turnips in full armor and challenges every crow to a duel. The crows have formed an alliance, and honestly, they are winning.',
+    '2-3': 'He bows so deeply that his visor slams shut every time. He has introduced himself to the same lamp post eleven times and it still ignores him.',
+    '2-4': 'His trusty steed is a horse with a pompadour. He calls everyone "daddy-o, good sir" and has started three jousts at the local diner.',
+    '2-5': 'He tried to fly a dragon, but the dragon wanted to fly him. They compromised: now they both walk and argue about directions.',
+    '2-6': 'He planted his banner on Mars and claimed it for the king. The king has no idea where Mars is, but has already asked for taxes.',
+    '3-0': 'He clubs his dinner with a very polite cane and apologizes to it afterwards. His cave has wallpaper, a butler, and absolutely no fire safety.',
+    '3-1': 'He wears a top hat to milk the cows and insists they call him "Sir." The cows have not complied. One of them ate his monocle.',
+    '3-2': 'He duels with an umbrella, and only on Tuesdays, weather permitting. His greatest battle was against a rain cloud. It ended in a draw.',
+    '3-4': 'He rides a penny-farthing with flames painted on the big wheel. His leather jacket has coat tails, and his comb is silver and slightly too fancy.',
+    '3-5': 'His hot-air balloon runs entirely on tea steam. Every flight ends in an emergency landing, because someone has to refill the kettle.',
+    '3-6': 'He packed fourteen suitcases for the Moon, all of them hats. When asked about oxygen, he replied that a gentleman simply holds his breath.',
+    '4-0': 'He invented the wheel, then immediately gave it whitewall tires. Every night he cruises the valley on a rock with fuzzy dice hanging off it.',
+    '4-1': 'He plays rock and roll to his corn so it grows taller. It worked, but now the corn has sideburns and won\'t listen to anyone.',
+    '4-2': 'He fights dragons with a jukebox and a really cool attitude. His armor is chrome, his horse is cherry red, and both have tail fins.',
+    '4-3': 'He drinks his tea through a milkshake straw and calls the Queen "baby." He has been asked to leave six royal garden parties.',
+    '4-5': 'He has a jukebox in the cockpit and hits every bump of turbulence on the beat. Passengers call it Rock Around the Clouds.',
+    '4-6': 'His rocket has whitewall tires, which do absolutely nothing in space. He still stops at every star for a malt.',
+    '5-0': 'He wears flying goggles to hunt, which mostly helps him see how fast the mammoth is running away. He salutes every bird, just in case.',
+    '5-1': 'He crop-dusts by throwing seeds out of his scarf mid-flight. Half the village now has beans growing on their roofs.',
+    '5-2': 'He jousts from a biplane and has hit absolutely nothing. He once knocked a pigeon\'s hat off, and they have been rivals ever since.',
+    '5-3': 'He serves tea at 3,000 feet and has never spilled a drop, mostly because the tea flies out of the cup before it can land anywhere.',
+    '5-4': 'He combs his hair mid-flight, and the wind combs it right back. He thinks this is a duel, and he is losing.',
+    '5-6': 'He tried to reach space in a biplane by pulling really, really hard on the stick. He got close enough to wave at a satellite. It did not wave back.',
+    '6-0': 'He has a laser spear and a robot mammoth, but still talks only in grunts. His smart fridge has learned to grunt back.',
+    '6-1': 'He grows space potatoes from a hover-tractor and talks to them through an app. The potatoes have started leaving one-star reviews.',
+    '6-2': 'His sword is a beam of light and his horse is a hoverboard with a mane. He still gets stuck in doorways, because his armor is "retro-chic."',
+    '6-3': 'His monocle is a hologram that shows the stock market and cat videos. He brews tea with a fusion reactor and judges anyone who owns a kettle.',
+    '6-4': 'His hoverbike has real flames, which is why he is banned from four space stations. His hair is held up with anti-gravity gel.',
+    '6-5': 'He flies a starship but wears a leather scarf and goggles "for the feel." The autopilot has begged him to stop shouting "Contact!" at takeoff.',
+  },
+
+  story(look, job) {
+    return this.stories[look + '-' + job] || '';
   },
 
   customerName(look, job) {
