@@ -25,7 +25,9 @@ Every balancing value (scoring, timers, penalties, order ramp-up, customer slots
 | --- | --- |
 | `src/config.js` | All tunable values |
 | `src/data.js` | Merge chain and eras |
-| `src/draw.js` | Code-drawn bubbles, vehicles and customers |
+| `src/draw.js` | Code-drawn fallback art (used if a sheet is missing) |
+| `src/art.js` | Slices the art in `assets/` into textures at load time |
+| `src/BgScene.js` | Background picture behind everything |
 | `src/storage.js` | Best score and Customer Book (localStorage) |
 | `src/GameScene.js` | Capsule, physics, merging, customers, scoring |
 | `src/UIScene.js` | Responsive layout, HUD, cards, input, overlays |

@@ -34,8 +34,9 @@ window.ERA_DATA = {
   // Capsule skins: -1 is the default; 0–6 unlock by collecting all 6 hybrids with that era's look.
   skin(index) {
     const e = this.eras[index];
-    if (!e) return { glass: 0xbfe9ff, portal: [0x22e3ff, 0xff6fa5, 0xf2d27a, 0xb07ee0] };
-    return { glass: e.main === 0x3b3036 ? e.accent : e.main, portal: [e.accent, e.bg, e.main, 0xffffff] };
+    if (!e) return { glass: 0xbfe9ff, frameTint: 0xffffff, portal: [0x22e3ff, 0xff6fa5, 0xf2d27a, 0xb07ee0] };
+    const glass = e.main === 0x3b3036 ? e.accent : e.main;
+    return { glass, frameTint: glass, portal: [e.accent, e.bg, e.main, 0xffffff] };
   },
 
   customerName(look, job) {

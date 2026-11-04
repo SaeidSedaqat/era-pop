@@ -18,6 +18,7 @@ class UIScene extends Phaser.Scene {
     }).setOrigin(origin[0], origin[1]);
 
     this.titleText = txt([0.5, 0]).setText('ERA POP').setColor('#ffe066');
+    this.logoImg = this.textures.exists('ui_logo') ? this.add.image(0, 0, 'ui_logo').setOrigin(0.5, 0) : null;
     this.scoreText = txt([0, 0.5]);
     this.bestText = txt([0, 0.5]).setColor('#cfc6ff');
     this.nextLabel = txt([0.5, 0.5]).setText('NEXT');
@@ -84,6 +85,7 @@ class UIScene extends Phaser.Scene {
       for (let i = 0; i < n; i++) L.cards.push({ x: pad + i * (cw + pad), y: hudH, w: cw, h: custH - pad });
       const fs = Math.round(hudH * 0.3);
       this.titleText.setVisible(false);
+      if (this.logoImg) this.logoImg.setVisible(false);
       this.scoreText.setFontSize(fs).setPosition(pad * 2, hudH * 0.33);
       this.bestText.setFontSize(Math.round(fs * 0.7)).setPosition(pad * 2, hudH * 0.72);
       this.nextLabel.setFontSize(Math.round(fs * 0.7)).setPosition(W * 0.5 - hudH * 0.55, hudH * 0.5);
@@ -102,6 +104,11 @@ class UIScene extends Phaser.Scene {
       for (let i = 0; i < n; i++) L.cards.push({ x: W - side + pad, y: pad + i * (ch + pad), w: side - pad * 2, h: ch });
       const fs = Math.round(Math.min(side * 0.11, H * 0.05));
       this.titleText.setVisible(true).setFontSize(Math.round(fs * 1.4)).setPosition(side / 2, H * 0.05);
+      if (this.logoImg) {
+        this.titleText.setVisible(false);
+        this.logoImg.setVisible(true).setPosition(side / 2, H * 0.02)
+          .setScale(Math.min((side * 0.86) / this.logoImg.width, (H * 0.18) / this.logoImg.height));
+      }
       this.scoreText.setFontSize(fs).setPosition(side * 0.12, H * 0.24);
       this.bestText.setFontSize(Math.round(fs * 0.7)).setPosition(side * 0.12, H * 0.31);
       L.scoreMaxW = side * 0.8;
@@ -136,8 +143,8 @@ class UIScene extends Phaser.Scene {
     g.clear();
 
     // HUD
-    g.fillStyle(0x1a1430, 0.85).fillRect(L.hud.x, L.hud.y, L.hud.w, L.hud.h);
-    if (!L.portrait) g.fillStyle(0x1a1430, 0.85).fillRect(L.W - L.hud.w, 0, L.hud.w, L.H);
+    g.fillStyle(0x1a1430, 0.55).fillRect(L.hud.x, L.hud.y, L.hud.w, L.hud.h);
+    if (!L.portrait) g.fillStyle(0x1a1430, 0.55).fillRect(L.W - L.hud.w, 0, L.hud.w, L.H);
     // Shrink long scores to fit (Orbitron is wide).
     this.scoreText.setText('SCORE ' + G.score);
     this.scoreText.setScale(Math.min(1, L.scoreMaxW / this.scoreText.width));
@@ -250,8 +257,12 @@ class UIScene extends Phaser.Scene {
     g.fillStyle(0x000000, 0.4 * a).fillRoundedRect(bx, by, bw, bh, bh / 2);
     if (frac > 0) g.fillStyle(col, a).fillRoundedRect(bx, by, Math.max(bh, bw * frac), bh, bh / 2);
 
-    // Points float
+    // Points float (+ a sparkle when served, a puff of smoke when they give up)
     if (c.state === 'leaving') {
+      if (!c.fxDone) {
+        c.fxDone = true;
+        this.cardFx(c.result === 'served' ? 'fx_sparkle' : 'fx_puff', r);
+      }
       const k = c.leaveT / CC.leaveSec;
       card.float.setVisible(true).setText((c.points > 0 ? '+' : '') + c.points + (c.tip ? '\nTIP!' : '')).setAlign('center')
         .setColor(c.points > 0 ? '#62ff8a' : '#ff4f6a').setFontSize(Math.round(Math.min(r.w, r.h) * 0.22))
@@ -346,6 +357,15 @@ class UIScene extends Phaser.Scene {
   onServed(res) {
     if (res.eraDone) this.toast(ERA_DATA.eras[res.look].short + ' look complete!\nNew capsule skin in the Book', 3000);
     else if (res.isNew) this.toast('New in your Customer Book:\n' + res.name + '!', 2200);
+  }
+
+  cardFx(key, r) {
+    if (!this.textures.exists(key)) return;
+    const size = Math.min(r.w, r.h) * 1.1;
+    const img = this.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setBlendMode(Phaser.BlendModes.ADD).setDepth(4);
+    const base = 1 / Math.max(img.width, img.height);
+    img.setScale(size * 0.5 * base);
+    this.tweens.add({ targets: img, scale: size * 1.2 * base, alpha: 0, duration: 650, ease: 'Cubic.Out', onComplete: () => img.destroy() });
   }
 
   toast(msg, ms) {

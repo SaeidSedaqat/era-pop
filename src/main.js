@@ -36,7 +36,7 @@
         matter: { gravity: { x: 0, y: C.physics.gravityY }, enableSleeping: false, debug: false },
       },
       input: { activePointers: 2 },
-      scene: [GameScene, UIScene],
+      scene: [BgScene, GameScene, UIScene],
     });
 
     let pending = null;

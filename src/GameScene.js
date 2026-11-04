@@ -3,23 +3,28 @@
 
 class GameScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'Game' });
+    // The logo loads first (scene pack) so the loading screen can show it.
+    super({ key: 'Game', active: true, pack: { files: [{ type: 'image', key: 'ui_logo_src', url: 'assets/ui/logo.jpg' }] } });
   }
 
   preload() {
+    EraArt.buildLogo(this);
     EraArt.preload(this);
     if (this.load.list.size > 0) this.showLoadingBar(); // nothing queued on restart
   }
 
-  // Simple progress bar while the art sheets download (camera is still full-screen here).
+  // Logo and progress bar while the art sheets download (camera is still full-screen here).
   showLoadingBar() {
     const W = this.scale.width, H = this.scale.height;
     const bw = Math.min(W * 0.6, 600), bh = Math.max(10, Math.min(W, H) * 0.025);
-    const x = (W - bw) / 2, y = H / 2;
-    const title = this.add.text(W / 2, y - bh * 3, 'ERA POP', {
-      fontFamily: ERA_FONTS.title, fontStyle: '900', fontSize: Math.round(Math.min(W, H) * 0.08) + 'px',
-      color: '#ffe066', stroke: '#241b3d', strokeThickness: 6,
-    }).setOrigin(0.5, 1);
+    const x = (W - bw) / 2, y = H * 0.62;
+    const title = this.textures.exists('ui_logo')
+      ? this.add.image(W / 2, y - bh * 3, 'ui_logo').setOrigin(0.5, 1)
+      : this.add.text(W / 2, y - bh * 3, 'ERA POP', {
+        fontFamily: ERA_FONTS.title, fontStyle: '900', fontSize: Math.round(Math.min(W, H) * 0.08) + 'px',
+        color: '#ffe066', stroke: '#241b3d', strokeThickness: 6,
+      }).setOrigin(0.5, 1);
+    if (title.type === 'Image') title.setScale(Math.min((W * 0.7) / title.width, (H * 0.4) / title.height));
     const g = this.add.graphics();
     const draw = (p) => {
       g.clear();
@@ -42,8 +47,20 @@ class GameScene extends Phaser.Scene {
 
     EraArt.build(this);
 
-    // Visible world area (capsule + portal), fitted into the screen rect UIScene gives us.
-    this.view = { x: -40, y: -150, w: cap.width + 80, h: cap.height + 190 };
+    // Capsule frame art: scale it so its inner opening matches the capsule interior.
+    const F = EraArt.frame;
+    if (F && this.textures.exists('ui_frame')) {
+      const sx = cap.width / (F.r - F.l), sy = (cap.height + 14) / (F.b - F.t);
+      this.frameBox = { x: -F.l * sx, y: -14 - F.t * sy, sx, sy, w: F.w * sx, h: F.h * sy };
+    } else {
+      this.frameBox = null;
+    }
+
+    // Visible world area (capsule + frame + portal), fitted into the screen rect UIScene gives us.
+    const fb = this.frameBox;
+    const left = Math.min(-40, fb ? fb.x - 6 : 0), right = Math.max(cap.width + 40, fb ? fb.x + fb.w + 6 : 0);
+    const bottom = Math.max(cap.height + 40, fb ? fb.y + fb.h + 6 : 0);
+    this.view = { x: left, y: -150, w: right - left, h: bottom + 150 };
 
     // ---- Walls ----
     const t = cap.wallThickness;
@@ -61,10 +78,17 @@ class GameScene extends Phaser.Scene {
     this.glowG = this.add.graphics(); // match glow, behind the bubbles
     this.bubbleLayer = this.add.container(0, 0);
     this.frontG = this.add.graphics();
+    this.frameImg = fb ? this.add.image(fb.x, fb.y, 'ui_frame').setOrigin(0, 0).setScale(fb.sx, fb.sy) : null;
     this.drawCapsule();
     this.dangerG = this.add.graphics();
+    // Portal: the art spins inside a container squashed into an ellipse; drawn arcs if the art is missing.
     this.portalG = this.add.graphics({ x: cap.width / 2, y: cap.dropY - 10 });
     this.portalG.setScale(1, 0.32);
+    this.portalImg = null;
+    if (this.textures.exists('ui_portal')) {
+      this.portalImg = this.add.image(0, 0, 'ui_portal').setDisplaySize(cap.width * 1.02, cap.width * 1.02);
+      this.add.container(cap.width / 2, cap.dropY - 10, [this.portalImg]).setScale(1, 0.32);
+    }
     this.heldImg = this.add.image(0, cap.dropY, 'bubble0').setScale(1 / EraDraw.TEX_SCALE);
 
     // ---- State ----
@@ -127,11 +151,17 @@ class GameScene extends Phaser.Scene {
     back.fillStyle(this.skin.glass, 0.06).fillRect(0, 0, W, H);
 
     const g = this.frontG.clear();
-    // glass walls
-    g.lineStyle(10, this.skin.glass, 0.85).strokeRoundedRect(-5, -20, W + 10, H + 25, 18);
-    g.fillStyle(0x241b3d, 1).fillRect(-10, -30, W + 20, 18); // open top
-    // rim
-    g.fillStyle(0xcfd8e6, 1).fillRoundedRect(-22, -22, 34, 14, 6).fillRoundedRect(W - 12, -22, 34, 14, 6);
+    if (this.frameImg) {
+      // Frame art (tinted by the skin) replaces the drawn walls and rim; keep thin glass edges.
+      this.frameImg.setTint(this.skin.frameTint);
+      g.lineStyle(4, this.skin.glass, 0.5).lineBetween(0, 0, 0, H).lineBetween(W, 0, W, H);
+    } else {
+      // glass walls
+      g.lineStyle(10, this.skin.glass, 0.85).strokeRoundedRect(-5, -20, W + 10, H + 25, 18);
+      g.fillStyle(0x241b3d, 1).fillRect(-10, -30, W + 20, 18); // open top
+      // rim
+      g.fillStyle(0xcfd8e6, 1).fillRoundedRect(-22, -22, 34, 14, 6).fillRoundedRect(W - 12, -22, 34, 14, 6);
+    }
     // glass shine
     g.fillStyle(0xffffff, 0.08).fillRect(14, 20, 14, H - 60);
     g.fillStyle(0xffffff, 0.06).fillRect(36, 40, 6, H - 120);
@@ -143,14 +173,20 @@ class GameScene extends Phaser.Scene {
   }
 
   drawPortal(time) {
+    // A storm makes the portal spin fast and flash storm colours.
+    const stormy = !!this.storm;
+    this.portalSpin = (this.portalSpin || 0) + (stormy ? 0.012 : 0.002) * (this.game.loop.delta || 16);
+    if (this.portalImg) {
+      this.portalImg.setRotation(this.portalSpin);
+      if (stormy) this.portalImg.setTint(Math.floor(time / 150) % 2 ? 0xff8866 : 0xffe066);
+      else this.portalImg.clearTint();
+      return;
+    }
     const g = this.portalG;
     const R = this.C.capsule.width * 0.5;
     g.clear();
-    // A storm makes the portal spin fast and flash storm colours.
-    const stormy = !!this.storm;
     g.fillStyle(stormy ? 0xd0403f : 0x6a3fd0, 0.35).fillCircle(0, 0, R);
     g.fillStyle(this.skin.portal[0], 0.15).fillCircle(0, 0, R * 0.6);
-    this.portalSpin = (this.portalSpin || 0) + (stormy ? 0.012 : 0.002) * (this.game.loop.delta || 16);
     const spin = this.portalSpin;
     const colors = stormy ? [0xffe066, 0xff4f6a, 0xffffff, 0xff9a3c] : this.skin.portal;
     for (let i = 0; i < 8; i++) {
@@ -318,6 +354,9 @@ class GameScene extends Phaser.Scene {
         const pts = Math.round(S.mergePoints[tier + 1] * mult);
         this.addScore(pts);
         this.popText(x, y, '+' + pts + comboTag, this.combo > 1 ? '#ffe066' : '#ffffff', this.combo > 1 ? 1.2 : 1);
+        const size = this.C.bubbleRadius[tier + 1] * 2.6;
+        this.fx('fx_pop', x, y, size, 450);
+        if (this.combo > 1) this.fx('fx_stars', x, y, size * 1.2, 700);
       } else {
         // Two Rockets merge and disappear.
         const pts = Math.round(S.rocketPopPoints * mult);
@@ -337,7 +376,23 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: txt, y: y - 60, alpha: 0, duration: 900, ease: 'Cubic.Out', onComplete: () => txt.destroy() });
   }
 
+  // One-shot effect from the effects sheet, blended additively; grows and fades out.
+  fx(key, x, y, size, duration) {
+    if (!this.textures.exists(key)) return false;
+    const img = this.add.image(x, y, key).setBlendMode(Phaser.BlendModes.ADD);
+    img.setScale((size * 0.6) / Math.max(img.width, img.height));
+    this.tweens.add({
+      targets: img, scale: (size * 1.3) / Math.max(img.width, img.height), alpha: 0,
+      duration, ease: 'Cubic.Out', onComplete: () => img.destroy(),
+    });
+    return true;
+  }
+
   burst(x, y) {
+    if (this.fx('fx_stars', x, y, 420, 900)) {
+      this.fx('fx_pop', x, y, 300, 600);
+      return;
+    }
     const g = this.add.graphics({ x, y });
     const colors = [0xffe066, 0xff6fa5, 0x22e3ff];
     for (let i = 0; i < 14; i++) {

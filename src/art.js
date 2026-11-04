@@ -15,6 +15,9 @@ window.EraArt = (function () {
     if (scene.textures.exists('cust_0_0')) return;
     for (let i = 0; i < 7; i++) scene.load.image('sheet_era' + i, 'assets/sheets/era' + i + '.jpg');
     scene.load.image('sheet_items', 'assets/sheets/items.jpg');
+    scene.load.image('ui_frame_src', 'assets/ui/frame.jpg');
+    scene.load.image('ui_portal_src', 'assets/ui/portal.jpg');
+    scene.load.image('ui_fx_src', 'assets/ui/fx.jpg');
   }
 
   // Index of the smallest value of arr within [lo, hi].
@@ -31,13 +34,15 @@ window.EraArt = (function () {
 
   // Cuts one cell out of the sheet: background flood-filled from the cell border, then only the main
   // shape (and any sizeable pieces) kept, so stray lines and specks drop out. Returns a transparent canvas.
-  function extractCell(px, W, x0, y0, x1, y1) {
+  // isBg decides what counts as background; global also removes background pixels enclosed by the shape
+  // (needed for the green inside the capsule frame). minFrac drops pieces smaller than that share of the largest.
+  function extractCell(px, W, x0, y0, x1, y1, isBg = isLight, global = false, minFrac = 0.03) {
     const cw = x1 - x0 + 1, ch = y1 - y0 + 1, N = cw * ch;
     const at = (i) => ((y0 + ((i / cw) | 0)) * W + x0 + (i % cw)) * 4;
     const bg = new Uint8Array(N);
     const stack = new Int32Array(N);
     let sp = 0;
-    const push = (i) => { if (!bg[i] && isLight(px, at(i))) { bg[i] = 1; stack[sp++] = i; } };
+    const push = (i) => { if (!bg[i] && isBg(px, at(i))) { bg[i] = 1; stack[sp++] = i; } };
     for (let x = 0; x < cw; x++) { push(x); push((ch - 1) * cw + x); }
     for (let y = 0; y < ch; y++) { push(y * cw); push(y * cw + cw - 1); }
     const flood = (pushFn) => {
@@ -50,6 +55,7 @@ window.EraArt = (function () {
       }
     };
     flood(push);
+    if (global) for (let i = 0; i < N; i++) if (isBg(px, at(i))) bg[i] = 1;
 
     // Label the remaining shapes; keep the ones at least 3% the size of the largest.
     const label = new Int32Array(N);
@@ -64,7 +70,7 @@ window.EraArt = (function () {
     }
     const maxSize = Math.max(...sizes);
     if (!maxSize) return null;
-    const keep = sizes.map((n) => n >= maxSize * 0.03);
+    const keep = sizes.map((n) => n >= maxSize * minFrac);
 
     let bx0 = cw, by0 = ch, bx1 = -1, by1 = -1;
     for (let i = 0; i < N; i++) {
@@ -88,7 +94,7 @@ window.EraArt = (function () {
           const cx = i % cw;
           const edge = (cx > 0 && bg[i - 1]) || (cx < cw - 1 && bg[i + 1]) || (i >= cw && bg[i - cw]) || (i < N - cw && bg[i + cw]);
           const mn = Math.min(px[p], px[p + 1], px[p + 2]);
-          if (edge && mn > 170) a = Math.round(255 * (255 - mn) / 85);
+          if (isBg === isLight && edge && mn > 170) a = Math.round(255 * (255 - mn) / 85);
         }
         od.data[q + 3] = a;
       }
@@ -100,37 +106,98 @@ window.EraArt = (function () {
   // Splits a 2-row sheet (layout = figures per row, e.g. [4, 3]) into transparent canvases in reading order.
   // Row and column cuts go through the emptiest line near where the grid predicts them, so figures that
   // touch their neighbours are still separated.
-  function segment(img, layout) {
+  function pixels(img) {
     const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const ctx = c.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(img, 0, 0);
-    const px = ctx.getImageData(0, 0, W, H).data;
+    return { W, H, px: ctx.getImageData(0, 0, W, H).data };
+  }
 
-    const rowCount = new Int32Array(H);
-    for (let y = 0; y < H; y++) {
-      let n = 0;
-      for (let x = 0, p = y * W * 4; x < W; x++, p += 4) if (!isLight(px, p)) n++;
-      rowCount[y] = n;
+  // A one-row layout (e.g. [4]) is a single band.
+  function segment(img, layout, isBg = isLight) {
+    const { W, H, px } = pixels(img);
+
+    let bands = [[0, H - 1]];
+    if (layout.length > 1) {
+      const rowCount = new Int32Array(H);
+      for (let y = 0; y < H; y++) {
+        let n = 0;
+        for (let x = 0, p = y * W * 4; x < W; x++, p += 4) if (!isBg(px, p)) n++;
+        rowCount[y] = n;
+      }
+      const split = argmin(rowCount, Math.round(H * 0.38), Math.round(H * 0.62));
+      bands = [[0, split], [split + 1, H - 1]];
     }
-    const split = argmin(rowCount, Math.round(H * 0.38), Math.round(H * 0.62));
-    const bands = [[0, split], [split + 1, H - 1]];
 
     const parts = [];
     bands.forEach(([y0, y1], r) => {
       const n = layout[r];
       const colCount = new Int32Array(W);
-      for (let y = y0; y <= y1; y++) for (let x = 0, p = y * W * 4; x < W; x++, p += 4) if (!isLight(px, p)) colCount[x]++;
+      for (let y = y0; y <= y1; y++) for (let x = 0, p = y * W * 4; x < W; x++, p += 4) if (!isBg(px, p)) colCount[x]++;
       const cuts = [0];
       for (let k = 1; k < n; k++) {
         const guess = Math.round((W * k) / n);
         cuts.push(argmin(colCount, guess - Math.round(W * 0.09), guess + Math.round(W * 0.09)));
       }
       cuts.push(W);
-      for (let k = 0; k < n; k++) parts.push(extractCell(px, W, cuts[k], y0, cuts[k + 1] - 1, y1));
+      for (let k = 0; k < n; k++) parts.push(extractCell(px, W, cuts[k], y0, cuts[k + 1] - 1, y1, isBg));
     });
     return parts.every(Boolean) ? parts : null;
+  }
+
+  // ---------- Scene art: capsule frame (green background), portal / logo / effects (black background) ----------
+  const isBlack = (px, p) => Math.max(px[p], px[p + 1], px[p + 2]) < 40;
+  const isGreen = (px, p) => px[p + 1] > 120 && px[p + 1] > px[p] * 1.25 && px[p + 1] > px[p + 2] * 1.25;
+
+  function cutWhole(scene, srcKey, outKey, isBg, global) {
+    if (scene.textures.exists(outKey)) return true;
+    if (!scene.textures.exists(srcKey)) return false;
+    try {
+      const { W, H, px } = pixels(scene.textures.get(srcKey).getSourceImage());
+      const canvas = extractCell(px, W, 0, 0, W - 1, H - 1, isBg, global);
+      if (!canvas) return false;
+      scene.textures.addCanvas(outKey, canvas);
+      return true;
+    } catch (e) {
+      console.warn('[EraArt] ' + srcKey + ' failed', e);
+      return false;
+    }
+  }
+
+  // The logo is loaded before everything else (scene pack) so the loading screen can show it.
+  function buildLogo(scene) {
+    return cutWhole(scene, 'ui_logo_src', 'ui_logo', isBlack, false);
+  }
+
+  // Inner opening of the capsule frame, in texture pixels: scan out from the centre until hitting metal.
+  function measureFrame(canvas) {
+    const w = canvas.width, h = canvas.height;
+    const a = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+    const solid = (x, y) => a[(y * w + x) * 4 + 3] > 128;
+    const cx = w >> 1, cy = h >> 1;
+    let l = cx, r = cx, t = cy, b = cy;
+    while (l > 0 && !solid(l, cy)) l--;
+    while (r < w - 1 && !solid(r, cy)) r++;
+    while (t > 0 && !solid(cx, t)) t--;
+    while (b < h - 1 && !solid(cx, b)) b++;
+    return { w, h, l, r, t, b };
+  }
+
+  function buildSceneArt(scene) {
+    if (cutWhole(scene, 'ui_frame_src', 'ui_frame', isGreen, true)) {
+      EraArt.frame = measureFrame(scene.textures.get('ui_frame').getSourceImage());
+    }
+    cutWhole(scene, 'ui_portal_src', 'ui_portal', isBlack, false);
+    if (!scene.textures.exists('fx_pop') && scene.textures.exists('ui_fx_src')) {
+      try {
+        const parts = segment(scene.textures.get('ui_fx_src').getSourceImage(), [4], isBlack);
+        if (parts) ['fx_pop', 'fx_sparkle', 'fx_stars', 'fx_puff'].forEach((k, i) => scene.textures.addCanvas(k, parts[i]));
+      } catch (e) {
+        console.warn('[EraArt] effects failed', e);
+      }
+    }
   }
 
   function sheetParts(scene, key, layout) {
@@ -208,7 +275,7 @@ window.EraArt = (function () {
 
   // Builds every customer and bubble texture; anything without art falls back to code-drawn placeholders.
   function build(scene) {
-    if (scene.textures.exists('cust_0_0')) return;
+    if (scene.textures.exists('cust_0_0')) return buildSceneArt(scene);
     for (let look = 0; look < 7; look++) {
       const parts = sheetParts(scene, 'sheet_era' + look, [4, 3]);
       const jobs = [look];
@@ -221,7 +288,8 @@ window.EraArt = (function () {
     const items = sheetParts(scene, 'sheet_items', [4, 4]);
     if (items) for (let t = 0; t < 7; t++) makeBubble(scene, t, items[0], items[t + 1]);
     EraDraw.makeBubbleTextures(scene); // fills in any tier still missing
+    buildSceneArt(scene);
   }
 
-  return { preload, build };
+  return { preload, build, buildLogo, frame: null };
 })();
