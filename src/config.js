@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.95',
+  version: '0.1.97',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -25,7 +25,9 @@ window.ERA_POP_CONFIG = {
     frictionStatic: 0.05,
     frictionAir: 0.01,
     density: 0.002,
-    lockRotation: true,  // keeps vehicles upright inside their bubbles
+    lockRotation: true,  // physics bodies don't rotate (stable stacking); the visual spin below is separate
+    // Visual spin: bubbles get a spin kick when they hit each other and roll with their sideways motion.
+    spin: { hitKick: 0.6, rollFollow: 0.12, maxSpin: 0.3 },  // maxSpin in radians per frame
   },
 
   // ---- Dropping ----

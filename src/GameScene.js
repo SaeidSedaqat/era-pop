@@ -108,6 +108,7 @@ class GameScene extends Phaser.Scene {
 
     this.matter.world.on('collisionstart', this.onCollide, this);
     this.matter.world.on('collisionactive', this.onCollide, this);
+    this.matter.world.on('collisionstart', this.onHitSpin, this);
 
     if (!this.scene.isActive('UI')) this.scene.launch('UI');
     else this.scene.get('UI').onGameRestart();
@@ -229,7 +230,7 @@ class GameScene extends Phaser.Scene {
     const body = this.matter.add.circle(x, y, r, opts);
     const img = this.add.image(x, y, 'bubble' + tier).setScale(1 / EraDraw.TEX_SCALE);
     this.bubbleLayer.add(img);
-    const b = { tier, r, body, img, landed: !!landed, dead: false, dragging: false, aboveMs: 0 };
+    const b = { tier, r, body, img, landed: !!landed, dead: false, dragging: false, aboveMs: 0, angle: 0, spin: 0 };
     body.bubble = b;
     this.bubbles.push(b);
     return b;
@@ -292,6 +293,33 @@ class GameScene extends Phaser.Scene {
       a.dead = true;
       b.dead = true;
       this.mergeQueue.push([a, b]);
+    }
+  }
+
+  // Spin kick on impact: the sideways part of the relative velocity at the contact sets each
+  // bubble spinning (in opposite directions, like gears); bigger bubbles spin slower.
+  onHitSpin(event) {
+    const SP = this.C.physics.spin;
+    for (const pair of event.pairs) {
+      const a = pair.bodyA.bubble, b = pair.bodyB.bubble;
+      if (!a && !b) continue;
+      const n = pair.collision.normal;
+      const va = pair.bodyA.velocity, vb = pair.bodyB.velocity;
+      const cross = n.x * (va.y - vb.y) - n.y * (va.x - vb.x);
+      if (a && !a.dragging) a.spin = Phaser.Math.Clamp(a.spin + (SP.hitKick * cross) / a.r * 4, -SP.maxSpin, SP.maxSpin);
+      if (b && !b.dragging) b.spin = Phaser.Math.Clamp(b.spin - (SP.hitKick * cross) / b.r * 4, -SP.maxSpin, SP.maxSpin);
+    }
+  }
+
+  // Each frame: spin eases toward rolling with the sideways speed, so kicks fade and resting bubbles stop.
+  updateSpin(delta) {
+    const SP = this.C.physics.spin, k = delta / 16.67;
+    for (const b of this.bubbles) {
+      if (b.dragging) continue;
+      const roll = b.body.velocity.x / b.r;
+      b.spin += (roll - b.spin) * Math.min(1, SP.rollFollow * k);
+      b.angle += b.spin * k;
+      b.img.setRotation(b.angle);
     }
   }
 
@@ -601,8 +629,8 @@ class GameScene extends Phaser.Scene {
     }
     for (const b of this.bubbles) {
       b.img.setPosition(b.body.position.x, b.body.position.y);
-      if (!this.C.physics.lockRotation) b.img.setRotation(b.body.angle);
     }
+    if (!this.gameOver) this.updateSpin(delta);
     this.drawGlow(time);
     this.drawAim();
     this.drawDanger(time);

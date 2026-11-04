@@ -28,7 +28,6 @@ class UIScene extends Phaser.Scene {
 
     // One speech bubble per customer slot (drawn above the cards, below overlays).
     this.speech = [];
-    this.speechSeq = 0;
     for (let i = 0; i < this.C.customers.maxSlots; i++) {
       this.speech.push({
         id: 0, start: 0, dur: 0, kind: null,
@@ -91,7 +90,10 @@ class UIScene extends Phaser.Scene {
       const custH = Math.round(Math.min(H * 0.2, W * 0.4));
       L.pad = pad;
       L.hud = { x: 0, y: 0, w: W, h: hudH };
-      L.cap = { x: pad, y: hudH + custH + pad, w: W - pad * 2, h: H - hudH - custH - pad * 2 };
+      // Dialogue strip between the cards and the capsule, so speech never covers the capsule.
+      const stripH = Math.round(Math.max(11 * window.ERA_DPR, W * 0.032) * 3.6);
+      L.speechStrip = { x: pad, y: hudH + custH, w: W - pad * 2, h: stripH };
+      L.cap = { x: pad, y: hudH + custH + stripH, w: W - pad * 2, h: H - hudH - custH - stripH - pad };
       const cw = (W - pad * 2 - (n - 1) * pad) / n;
       for (let i = 0; i < n; i++) L.cards.push({ x: pad + i * (cw + pad), y: hudH, w: cw, h: custH - pad });
       const fs = Math.round(hudH * 0.3);
@@ -372,24 +374,14 @@ class UIScene extends Phaser.Scene {
     else if (res.isNew) this.toast('New in your Customer Book:\n' + res.name + '!', 2200);
   }
 
-  // Speech bubbles: a new line from a customer (new speechId) pops a bubble next to their card for a few
-  // seconds. It outlives the card, so thank-yous and goodbyes stay readable after the customer leaves.
+  // Speech: a new line from a customer (new speechId) shows for a few seconds and outlives the card, so
+  // thank-yous and goodbyes stay readable. It never covers the capsule:
+  //  - portrait: one bubble in the dialogue strip under the cards (the newest line), tail at the speaker;
+  //  - landscape: inside the speaker's own card, in place of their name.
   drawSpeech() {
     const G = this.G, L = this.L, now = this.time.now, SP = this.C.customers.speech;
-    const fs = Math.round(Math.max(11 * window.ERA_DPR, Math.min(L.W, L.H) * (L.portrait ? 0.03 : 0.022)));
     const fills = { arrive: 0xffffff, hurry: 0xfff1a8, thanks: 0xd6ffe0, leave: 0xffd6dc };
-    // Portrait: bubbles hang below the cards in two staggered rows (even slots on top, odd slots under
-    // them) so neighbours never cover each other. The lower row moves up when the top row is empty.
-    const slotW = L.cards.length > 1 ? L.cards[1].x - L.cards[0].x : L.W;
-    const pad = fs * 0.6, tail = fs * 0.9;
-    let topRowH = 0;
-    if (L.portrait) {
-      this.speech.forEach((s, i) => {
-        if (i % 2 || now - s.start > s.dur || !s.id) return;
-        s.text.setFontSize(fs).setWordWrapWidth(slotW * 1.6 - pad * 2);
-        topRowH = Math.max(topRowH, s.text.height + pad * 2);
-      });
-    }
+    const active = [];
     this.speech.forEach((s, i) => {
       const c = G.customers[i];
       if (c && c.speechId && c.speechId !== s.id) {
@@ -398,49 +390,64 @@ class UIScene extends Phaser.Scene {
         s.dur = (SP[c.speechKind + 'Sec'] || 2.5) * 1000;
         s.kind = c.speechKind;
         s.text.setText(c.speech);
-        const depth = 30 + (++this.speechSeq % 30) * 2; // newest on top
-        s.g.setDepth(depth);
-        s.text.setDepth(depth + 1);
       }
-      const t = now - s.start;
-      if (t > s.dur || G.gameOver || this.overlay) {
-        s.g.setVisible(false);
-        s.text.setVisible(false);
-        return;
-      }
-      const r = L.cards[i];
-      const bw = L.portrait ? slotW * 1.6 : Math.min(r.w * 1.05, L.cap.w * 0.5);
-      s.text.setFontSize(fs).setWordWrapWidth(bw - pad * 2);
-      const bh = s.text.height + pad * 2;
-      let bx, by, lowered = false;
-      if (L.portrait) {
-        bx = Phaser.Math.Clamp(r.x + r.w / 2 - bw / 2, L.pad, L.W - L.pad - bw);
-        by = r.y + r.h + tail;
-        if (i % 2 && topRowH) { by += topRowH + pad; lowered = true; }
-      } else {
-        bx = r.x - tail - bw;
-        by = Phaser.Math.Clamp(r.y + r.h / 2 - bh / 2, L.pad, L.H - L.pad - bh);
-      }
-      const a = Math.max(0, Math.min(1, t / 120, (s.dur - t) / 300));
-      const g = s.g.clear().setVisible(true).setAlpha(a);
-      const fill = fills[s.kind] || 0xffffff, line = Math.max(2, fs * 0.14);
-      g.fillStyle(fill, 1).fillRoundedRect(bx, by, bw, bh, fs * 0.6);
-      g.lineStyle(line, 0x241b3d, 1).strokeRoundedRect(bx, by, bw, bh, fs * 0.6);
-      // Tail pointing at the customer's card.
-      if (L.portrait) {
-        // A lowered bubble gets a long thin tail reaching up to its card.
-        const tx = Phaser.Math.Clamp(r.x + r.w / 2, bx + tail, bx + bw - tail);
-        const tipY = lowered ? r.y + r.h + line : by - tail + line;
-        const half = lowered ? tail * 0.35 : tail * 0.6;
-        g.fillStyle(fill, 1).fillTriangle(tx - half, by + line, tx + half, by + line, tx, tipY);
-        g.lineStyle(line, 0x241b3d, 1).lineBetween(tx - half, by, tx, tipY).lineBetween(tx + half, by, tx, tipY);
-      } else {
-        const ty = Phaser.Math.Clamp(r.y + r.h / 2, by + tail, by + bh - tail);
-        g.fillStyle(fill, 1).fillTriangle(bx + bw - line, ty - tail * 0.6, bx + bw - line, ty + tail * 0.6, bx + bw + tail - line, ty);
-        g.lineStyle(line, 0x241b3d, 1).lineBetween(bx + bw, ty - tail * 0.6, bx + bw + tail - line, ty).lineBetween(bx + bw, ty + tail * 0.6, bx + bw + tail - line, ty);
-      }
-      s.text.setVisible(true).setAlpha(a).setPosition(bx + pad, by + pad);
+      s.g.setVisible(false);
+      s.text.setVisible(false);
+      if (s.id && now - s.start <= s.dur && !G.gameOver && !this.overlay) active.push(i);
     });
+
+    if (L.portrait) {
+      if (!active.length) return;
+      const i = active.reduce((best, k) => (this.speech[k].start > this.speech[best].start ? k : best));
+      const st = L.speechStrip, r = L.cards[i];
+      const tail = st.h * 0.18;
+      this.drawBubble(this.speech[i], fills, st.x, st.y + tail, st.w, st.h - tail * 1.4,
+        Math.max(11 * window.ERA_DPR, L.W * 0.032), { x: r.x + r.w / 2, y: st.y + 2, up: true });
+      return;
+    }
+    for (const i of active) {
+      const r = L.cards[i];
+      // Same geometry as the horizontal card layout in drawCard: bubble fills the name area.
+      const pad = Math.min(r.w, r.h) * 0.08;
+      const ar = Math.min(r.h * 0.34, r.w * 0.2);
+      const ax = r.x + pad + ar;
+      const left = ax + ar * 0.85 + ar * 0.55 + pad * 0.5;
+      const barTop = r.y + r.h - pad - Math.max(4, r.h * 0.1);
+      const tail = Math.min(r.h * 0.1, pad * 1.2);
+      this.cards[i].name.setVisible(false);
+      this.drawBubble(this.speech[i], fills, left + tail, r.y + pad * 0.6, r.x + r.w - pad * 0.6 - left - tail,
+        barTop - r.y - pad * 1.2, r.h * 0.15, { x: left, y: r.y + r.h * 0.42, up: false });
+    }
+  }
+
+  // One rounded bubble with a tail toward (tip.x, tip.y). The font shrinks until the line fits the box.
+  drawBubble(s, fills, bx, by, bw, bh, fontPx, tip) {
+    const t = this.time.now - s.start;
+    const a = Math.max(0, Math.min(1, t / 120, (s.dur - t) / 300));
+    let fs = Math.round(fontPx);
+    const ip = Math.max(3, bh * 0.08);
+    const minFs = Math.round(8 * window.ERA_DPR);
+    s.text.setFontSize(fs).setWordWrapWidth(bw - ip * 2);
+    while (s.text.height > bh - ip * 2 && fs > minFs) {
+      fs = Math.max(minFs, Math.floor(fs * 0.9));
+      s.text.setFontSize(fs).setWordWrapWidth(bw - ip * 2);
+    }
+    const g = s.g.clear().setVisible(true).setAlpha(a).setDepth(30);
+    const fill = fills[s.kind] || 0xffffff, line = Math.max(2, fs * 0.12), rad = Math.min(bh * 0.3, fs * 0.6);
+    g.fillStyle(fill, 1).fillRoundedRect(bx, by, bw, bh, rad);
+    g.lineStyle(line, 0x241b3d, 1).strokeRoundedRect(bx, by, bw, bh, rad);
+    const half = Math.max(5, fs * 0.45);
+    if (tip.up) {
+      const tx = Phaser.Math.Clamp(tip.x, bx + half * 2, bx + bw - half * 2);
+      g.fillStyle(fill, 1).fillTriangle(tx - half, by + line, tx + half, by + line, tx, tip.y);
+      g.lineStyle(line, 0x241b3d, 1).lineBetween(tx - half, by, tx, tip.y).lineBetween(tx + half, by, tx, tip.y);
+    } else {
+      const ty = Phaser.Math.Clamp(tip.y, by + half * 2, by + bh - half * 2);
+      g.fillStyle(fill, 1).fillTriangle(bx + line, ty - half, bx + line, ty + half, tip.x, ty);
+      g.lineStyle(line, 0x241b3d, 1).lineBetween(bx, ty - half, tip.x, ty).lineBetween(bx, ty + half, tip.x, ty);
+    }
+    s.text.setVisible(true).setAlpha(a).setDepth(31)
+      .setPosition(bx + ip, by + (bh - s.text.height) / 2);
   }
 
   cardFx(key, r) {
