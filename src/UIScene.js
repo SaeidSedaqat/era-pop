@@ -604,7 +604,7 @@ class UIScene extends Phaser.Scene {
     g.fillStyle(0x2f2552, 1).fillRoundedRect(px, py, pw, ph, pw * 0.06);
     g.lineStyle(Math.max(3, pw * 0.01), 0xbfe9ff, 0.8).strokeRoundedRect(px, py, pw, ph, pw * 0.06);
     this.overlay.panel = { x: px, y: py, w: pw, h: ph };
-    this.ovText('CAPSULE FULL!', W / 2, py + ph * 0.1, pw * 0.09, '#ffe066');
+    this.ovText(G.loseReason === 'order' ? 'ORDER MISSED!' : 'CAPSULE FULL!', W / 2, py + ph * 0.1, pw * 0.09, '#ffe066');
     this.ovText('SCORE', W / 2, py + ph * 0.21, pw * 0.05, '#cfc6ff');
     this.ovText(String(G.score), W / 2, py + ph * 0.29, pw * 0.12);
     this.ovText('BEST ' + G.best, W / 2, py + ph * 0.38, pw * 0.055, '#cfc6ff');

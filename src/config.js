@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.234',
+  version: '0.1.244',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -12,6 +12,9 @@ window.ERA_POP_CONFIG = {
     wallThickness: 60,
     dropY: -65,          // where the held bubble sits, above the capsule
     dangerLineY: 85,     // Suika-style lose line, measured from the capsule top
+    // The danger line creeps down over the run, shrinking the capsule: after startSec it moves
+    // pxPerMin world units per minute until it reaches maxY.
+    dangerCreep: { startSec: 60, pxPerMin: 24, maxY: 285 },
   },
 
   // Bubble radius per tier (world units).
@@ -88,7 +91,9 @@ window.ERA_POP_CONFIG = {
     hybridChance: 0.75,          // chance a customer is a hybrid (look era != job era)
     orderTimeBaseSec: 20,        // order time limit = base + perTier * tier (Wheel 20 s, Bicycle 50 s ... Plane 70 s)
     orderTimePerTierSec: 10,
-    gentleCustomers: 2,          // the first N customers cost nothing if they time out
+    gentleCustomers: 2,          // the first N customers can time out safely; after that a missed order is game over
+    // Order time shrinks with every order served: time × max(minFactor, 1 − perOrder × served).
+    orderTimeShrink: { perOrder: 0.04, minFactor: 0.5 },
     // Rocket orders only appear when one could be served soon (a Rocket or this many Planes in the
     // capsule), otherwise a smaller order is picked. They also get extra time.
     rocketOrders: { minPlanes: 2, extraTimeSec: 40 },

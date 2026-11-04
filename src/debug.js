@@ -36,7 +36,7 @@
       }
     }
     const C = scene.C.capsule; // danger line
-    g.lineStyle(lw, 0xff4d6d, 0.8).lineBetween(0, C.dangerLineY, C.width, C.dangerLineY);
+    g.lineStyle(lw, 0xff4d6d, 0.8).lineBetween(0, scene.dangerY, C.width, scene.dangerY);
   }
 
   const game = () => window.ERA_GAME;
@@ -185,7 +185,7 @@
       stats.textContent =
         'fps ' + fps + '   speed ' + window.ERA_DEBUG.speed + 'x\n' +
         'time ' + g.elapsed.toFixed(1) + 's  bubbles ' + live + '\n' +
-        'score ' + g.score + '  served ' + g.ordersServed + '\n' +
+        'score ' + g.score + '  served ' + g.ordersServed + '  line ' + Math.round(g.dangerY) + '\n' +
         'drop ' + g.currentTier + ' next ' + g.nextTier + '\n' +
         'storm ' + (g.storm ? g.storm.type + ' ' + Math.max(0, g.storm.endsAt - g.elapsed).toFixed(0) + 's'
           : 'in ' + Math.max(0, g.nextStormAt - g.elapsed).toFixed(0) + 's') + '\n' +

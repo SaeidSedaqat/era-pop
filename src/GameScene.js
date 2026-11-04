@@ -120,6 +120,10 @@ class GameScene extends Phaser.Scene {
     this.revivesUsed = 0;
     this.ordersServed = 0;
     this.tickAt = 0;
+    this.dangerY = cap.dangerLineY;   // moves down over the run (capsule.dangerCreep)
+    this.creepWarned = false;
+    this.loseReason = null;           // 'full' | 'order'
+    this.failedSlot = -1;
 
     this.matter.world.on('collisionstart', this.onCollide, this);
     this.matter.world.on('collisionactive', this.onCollide, this);
@@ -195,8 +199,10 @@ class GameScene extends Phaser.Scene {
   drawDanger(time) {
     const g = this.dangerG;
     const W = this.C.capsule.width;
-    const y = this.C.capsule.dangerLineY;
+    const y = this.dangerY;
     g.clear();
+    // Shade the part of the capsule the creeping line has taken.
+    if (y > this.C.capsule.dangerLineY) g.fillStyle(0xff3355, 0.07).fillRect(0, 0, W, y);
     const show = this.dangerActive || (this.tutorial && this.tutorial.step === 'line');
     const flash = show && Math.floor(time / 200) % 2 === 0;
     g.lineStyle(flash ? 5 : 3, flash ? 0xff3355 : 0xff8899, flash ? 0.95 : 0.4);
@@ -528,6 +534,8 @@ class GameScene extends Phaser.Scene {
     const { look, job } = pick;
     let total = CC.orderTimeBaseSec + CC.orderTimePerTierSec * job;
     if (job === 6) total += CC.rocketOrders.extraTimeSec;
+    const TS = CC.orderTimeShrink;
+    total = Math.round(total * Math.max(TS.minFactor, 1 - TS.perOrder * this.ordersServed));
     const ST = this.C.storms;
     const mult = !this.storm ? 1 : this.storm.type === 'era' ? ST.eraOrderMultiplier : this.storm.type === 'rush' ? ST.rushOrderMultiplier : 1;
     this.customersSpawned++;
@@ -590,6 +598,7 @@ class GameScene extends Phaser.Scene {
           c.line = ERA_DATA.reactLine(c.look, false);
           c.points = -pen;
           EraAudio.play('timeout');
+          if (!c.gentle) { this.failedSlot = i; this.endGame('order'); return; }
         }
       } else if (c.state === 'leaving') {
         c.leaveT += dt;
@@ -646,8 +655,20 @@ class GameScene extends Phaser.Scene {
   }
 
   // ---------- Lose ----------
+  // Danger line creep: the capsule gets shorter as the run goes on.
+  updateDangerLine() {
+    const cap = this.C.capsule, DC = cap.dangerCreep;
+    const t = this.elapsed - DC.startSec;
+    this.dangerY = Math.min(DC.maxY, cap.dangerLineY + Math.max(0, t) * DC.pxPerMin / 60);
+    if (t > 0 && !this.creepWarned) {
+      this.creepWarned = true;
+      const ui = this.scene.get('UI');
+      if (ui && ui.toast) ui.toast('The capsule is shrinking!', 2000);
+    }
+  }
+
   checkLose(deltaMs) {
-    const line = this.C.capsule.dangerLineY;
+    const line = this.dangerY;
     let danger = false;
     for (const b of this.bubbles) {
       if (b.dead || !b.landed) { b.aboveMs = 0; continue; }
@@ -655,7 +676,7 @@ class GameScene extends Phaser.Scene {
         b.aboveMs += deltaMs;
         danger = true;
         if (b.aboveMs >= this.C.lose.graceMs) {
-          this.endGame();
+          this.endGame('full');
           return;
         }
       } else {
@@ -669,7 +690,8 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  endGame() {
+  endGame(reason) {
+    this.loseReason = reason || 'full';
     this.gameOver = true;
     this.dangerActive = true;
     this.matter.world.pause();
@@ -702,7 +724,13 @@ class GameScene extends Phaser.Scene {
   revive() {
     if (!this.canRevive()) return;
     this.revivesUsed++;
-    const limit = this.C.capsule.dangerLineY + this.C.ads.reviveClearDepth;
+    // Missed order: that customer leaves and the next one comes after the usual break.
+    if (this.loseReason === 'order' && this.failedSlot >= 0) {
+      this.customers[this.failedSlot] = null;
+      this.spawnTimerMs = this.C.customers.betweenOrdersMs;
+      this.failedSlot = -1;
+    }
+    const limit = this.dangerY + this.C.ads.reviveClearDepth;
     for (const b of this.bubbles.slice()) {
       if (b.body.position.y - b.r < limit) {
         this.fx('fx_puff', b.body.position.x, b.body.position.y, b.r * 2.6, 500);
@@ -731,6 +759,7 @@ class GameScene extends Phaser.Scene {
       const dt = Math.min(delta, 100) / 1000;
       this.elapsed += dt;
       this.updateStorm();
+      this.updateDangerLine();
       this.processMerges();
       this.updateCustomers(dt);
       this.checkLose(delta);
