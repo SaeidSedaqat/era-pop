@@ -11,7 +11,7 @@ Built with [Phaser 4.2.1](https://phaser.io) (vendored in `lib/`) and Matter.js 
 - **Tutorial:** the first run starts with a short, mandatory tutorial: drop, merge, serve a customer, then the danger line. It's remembered once finished (localStorage `erapop.tutorial.v1`).
 - **Drop:** touch or click inside the capsule, move to aim, release to drop. With a mouse, the bubble follows the cursor.
 - **Merge:** two identical bubbles that touch merge into the next tier: Wheel, Cart, Carriage, Bicycle, Car, Plane, Rocket. Two Rockets merge and disappear. Merges in quick succession build a combo multiplier.
-- **Orders:** one customer at a time walks in and says what they want, in their era's voice. Orders start at Bicycle and grow to Car, Plane and Rocket as the run goes on. Every order you serve raises the order bonus (+10% each, up to x2.5).
+- **Orders:** one customer at a time walks in and says what they want, in their era's voice. Any item from Wheel to Rocket can be ordered (Car, Plane and Rocket join over time), and customers you haven't collected in the Book yet come first. Every order you serve raises the order bonus (+10% each, up to x2.5).
 - **Serve:** drag a bubble onto the customer's card (bubbles they ordered glow, and the card flashes while you drag one). Serve fast for a tip. A plain tap anywhere in the capsule (even on a bubble) just drops.
 - Orders time out and cost points. You lose when the stack stays above the dashed line.
 - **Time storms:** every few minutes the portal glitches for 15 s: an era invasion, a merge frenzy, or a rush hour, each with bonus rewards.

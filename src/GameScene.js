@@ -506,7 +506,11 @@ class GameScene extends Phaser.Scene {
     }
     if (job === 6 && !this.rocketReachable()) job = Phaser.Math.Between(Math.min(ramp.min, 5), 5);
     let look = job;
+    // Prefer a hybrid for this order that isn't in the Customer Book yet, so the player keeps meeting new faces.
+    const locked = [];
+    for (let l = 0; l < 7; l++) if (l !== job && !EraStorage.hasInBook(l, job)) locked.push(l);
     if (this.storm && this.storm.type === 'era') look = this.storm.look;
+    else if (locked.length) look = Phaser.Utils.Array.GetRandom(locked);
     else if (Math.random() < CC.hybridChance) {
       look = Phaser.Math.Between(0, 5);
       if (look >= job) look += 1;

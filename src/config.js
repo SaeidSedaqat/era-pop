@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.197',
+  version: '0.1.207',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -86,19 +86,19 @@ window.ERA_POP_CONFIG = {
     betweenOrdersMs: 5000,       // pause after a customer leaves before the next one walks in
     retryWhenFullMs: 1500,       // if every open slot is taken, try again after this
     hybridChance: 0.75,          // chance a customer is a hybrid (look era != job era)
-    orderTimeBaseSec: 0,         // order time limit = base + perTier * tier (Bicycle 45 s ... Plane 75 s)
-    orderTimePerTierSec: 15,
+    orderTimeBaseSec: 20,        // order time limit = base + perTier * tier (Wheel 20 s, Bicycle 50 s ... Plane 80 s)
+    orderTimePerTierSec: 10,
     gentleCustomers: 2,          // the first N customers cost nothing if they time out
     // Rocket orders only appear when one could be served soon (a Rocket or this many Planes in the
     // capsule), otherwise a smaller order is picked. They also get extra time.
     rocketOrders: { minPlanes: 2, extraTimeSec: 40 },
-    // Order size ramp: the ordered tier is picked uniformly between min and max. Orders start at Bicycle (3).
+    // Order size ramp: the ordered tier is picked uniformly between min and max. Every tier from Wheel (0)
+    // can be ordered; bigger items join the pool over time.
     orderTierRamp: [
-      { atSec: 0, min: 3, max: 3 },
-      { atSec: 120, min: 3, max: 4 },
-      { atSec: 240, min: 4, max: 5 },
-      { atSec: 360, min: 4, max: 6 },
-      { atSec: 480, min: 5, max: 6 },
+      { atSec: 0, min: 0, max: 3 },
+      { atSec: 90, min: 0, max: 4 },
+      { atSec: 180, min: 0, max: 5 },
+      { atSec: 300, min: 0, max: 6 },
     ],
     arriveSec: 0.35,             // card fade-in
     leaveSec: 0.8,               // card fade-out after serve / timeout
