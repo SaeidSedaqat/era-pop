@@ -4,6 +4,7 @@ window.EraStorage = (function () {
   const BOOK_KEY = 'erapop.book.v1';
   const BEST_KEY = 'erapop.best.v1';
   const SKIN_KEY = 'erapop.skin.v1';
+  const MUTE_KEY = 'erapop.mute.v1';
 
   function read(key, fallback) {
     try {
@@ -38,6 +39,8 @@ window.EraStorage = (function () {
       return s >= 0 && s < 7 && this.eraCount(s) === 6 ? s : -1;
     },
     setSkin(i) { write(SKIN_KEY, i); },
+    getMuted() { return read(MUTE_KEY, false) === true; },
+    setMuted(m) { write(MUTE_KEY, !!m); },
     // Returns true if this hybrid is new to the book.
     addToBook(look, job) {
       const k = look + '-' + job;

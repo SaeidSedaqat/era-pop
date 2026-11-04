@@ -26,15 +26,6 @@ class UIScene extends Phaser.Scene {
     this.bookText = txt([0.5, 0.5]);
     this.versionText = txt([0, 1]).setText('v' + this.C.version).setColor('#8f86b8').setStroke('#241b3d', 0);
 
-    // One speech bubble per customer slot (drawn above the cards, below overlays).
-    this.speech = [];
-    for (let i = 0; i < this.C.customers.maxSlots; i++) {
-      this.speech.push({
-        id: 0, start: 0, dur: 0, kind: null,
-        g: this.add.graphics().setVisible(false),
-        text: this.add.text(0, 0, '', { fontFamily: ERA_FONTS.body, fontStyle: 'bold', color: '#241b3d' }).setVisible(false),
-      });
-    }
     this.cards = [];
     for (let i = 0; i < this.C.customers.maxSlots; i++) {
       this.cards.push({
@@ -71,7 +62,6 @@ class UIScene extends Phaser.Scene {
     this.aiming = false;
     this.ghost.setVisible(false);
     this.toastText.setVisible(false);
-    for (const s of this.speech) { s.dur = 0; s.g.setVisible(false); s.text.setVisible(false); }
     this.layout();
   }
 
@@ -90,10 +80,7 @@ class UIScene extends Phaser.Scene {
       const custH = Math.round(Math.min(H * 0.2, W * 0.4));
       L.pad = pad;
       L.hud = { x: 0, y: 0, w: W, h: hudH };
-      // Dialogue strip between the cards and the capsule, so speech never covers the capsule.
-      const stripH = Math.round(Math.max(11 * window.ERA_DPR, W * 0.032) * 3.6);
-      L.speechStrip = { x: pad, y: hudH + custH, w: W - pad * 2, h: stripH };
-      L.cap = { x: pad, y: hudH + custH + stripH, w: W - pad * 2, h: H - hudH - custH - stripH - pad };
+      L.cap = { x: pad, y: hudH + custH, w: W - pad * 2, h: H - hudH - custH - pad };
       const cw = (W - pad * 2 - (n - 1) * pad) / n;
       for (let i = 0; i < n; i++) L.cards.push({ x: pad + i * (cw + pad), y: hudH, w: cw, h: custH - pad });
       const fs = Math.round(hudH * 0.3);
@@ -105,6 +92,9 @@ class UIScene extends Phaser.Scene {
       L.scoreMaxW = this.nextLabel.x - this.nextLabel.width / 2 - pad * 4;
       L.next = { x: W * 0.5 + hudH * 0.15, y: hudH * 0.5, r: hudH * 0.36 };
       L.bookBtn = { x: W - pad * 2 - W * 0.26, y: hudH * 0.18, w: W * 0.26, h: hudH * 0.64 };
+      // Sound toggle centred in the gap between the NEXT bubble and the Book button.
+      const mw = Math.min(hudH * 0.64, (L.bookBtn.x - (L.next.x + L.next.r)) * 0.8);
+      L.muteBtn = { x: (L.next.x + L.next.r + L.bookBtn.x) / 2 - mw / 2, y: hudH * 0.5 - mw / 2, w: mw, h: mw };
       this.bookText.setFontSize(Math.round(fs * 0.7));
       this.versionText.setFontSize(Math.max(10, Math.round(fs * 0.45))).setPosition(pad, H - pad * 0.3);
     } else {
@@ -128,6 +118,7 @@ class UIScene extends Phaser.Scene {
       this.nextLabel.setFontSize(Math.round(fs * 0.7)).setPosition(side / 2, H * 0.42);
       L.next = { x: side / 2, y: H * 0.53, r: Math.min(side * 0.18, H * 0.08) };
       L.bookBtn = { x: side * 0.12, y: H * 0.7, w: side * 0.76, h: Math.min(H * 0.1, side * 0.3) };
+      L.muteBtn = { x: side / 2 - L.bookBtn.h * 0.5, y: L.bookBtn.y + L.bookBtn.h * 1.3, w: L.bookBtn.h, h: L.bookBtn.h };
       this.bookText.setFontSize(Math.round(fs * 0.7));
       this.versionText.setFontSize(Math.max(10, Math.round(fs * 0.45))).setPosition(pad, H - pad);
     }
@@ -145,11 +136,13 @@ class UIScene extends Phaser.Scene {
       this.closeOverlay(true);
       this.openOverlay(type);
     }
+    if (this.ad) this.buildAd();
   }
 
   // ---------- Per-frame drawing ----------
   update() {
     const G = this.G;
+    if (this.ad) this.updateAd();
     if (!G || !G.bubbles || !this.L) return;
     const L = this.L;
     const g = this.g;
@@ -168,14 +161,14 @@ class UIScene extends Phaser.Scene {
     this.nextImg.setScale(L.next.r / nr);
     g.fillStyle(0xffffff, 0.08).fillCircle(L.next.x, L.next.y, L.next.r * 1.1);
     this.button(g, L.bookBtn, 0x6a3fd0);
+    this.button(g, L.muteBtn, EraAudio.isMuted() ? 0x5a5478 : 0x2fb8b0);
+    this.drawSpeaker(g, L.muteBtn, EraAudio.isMuted());
     this.bookText.setText('BOOK ' + EraStorage.bookCount() + '/42');
 
     // Customer cards
     const open = G.openSlots();
     const hover = this.press && this.press.dragging ? this.cardAt(this.input.activePointer.x, this.input.activePointer.y) : -1;
     for (let i = 0; i < this.cards.length; i++) this.drawCard(i, L.cards[i], G.customers[i], i < open, hover === i);
-
-    this.drawSpeech();
 
     // Time storm banner
     if (G.storm && !G.gameOver) {
@@ -298,8 +291,10 @@ class UIScene extends Phaser.Scene {
   }
 
   onDown(p) {
+    if (this.ad) return;
     if (this.overlay) { this.overlayClick(p.x, p.y); return; }
-    if (this.inRect(this.L.bookBtn, p.x, p.y)) { this.openOverlay('book'); return; }
+    if (this.inRect(this.L.muteBtn, p.x, p.y)) { EraAudio.toggleMute(); EraAudio.play('click'); return; }
+    if (this.inRect(this.L.bookBtn, p.x, p.y)) { EraAudio.play('click'); this.openOverlay('book'); return; }
     const G = this.G;
     if (G.gameOver || !this.inRect(this.L.cap, p.x, p.y)) return;
     // A press on a bubble is a tap (aim + drop) unless it moves far enough to become a drag-to-serve.
@@ -349,7 +344,7 @@ class UIScene extends Phaser.Scene {
       else {
         G.endDrag(pr.b);
         const c = slot >= 0 ? G.customers[slot] : null;
-        if (c && c.state === 'waiting') this.toast('They want a ' + ERA_DATA.items[c.tier] + '!');
+        if (c && c.state === 'waiting') { EraAudio.play('wrong'); this.toast('They want a ' + ERA_DATA.items[c.tier] + '!'); }
       }
       return;
     }
@@ -370,84 +365,9 @@ class UIScene extends Phaser.Scene {
   }
 
   onServed(res) {
+    if (res.isNew) EraAudio.play('newcard');
     if (res.eraDone) this.toast(ERA_DATA.eras[res.look].short + ' look complete!\nNew capsule skin in the Book', 3000);
     else if (res.isNew) this.toast('New in your Customer Book:\n' + res.name + '!', 2200);
-  }
-
-  // Speech: a new line from a customer (new speechId) shows for a few seconds and outlives the card, so
-  // thank-yous and goodbyes stay readable. It never covers the capsule:
-  //  - portrait: one bubble in the dialogue strip under the cards (the newest line), tail at the speaker;
-  //  - landscape: inside the speaker's own card, in place of their name.
-  drawSpeech() {
-    const G = this.G, L = this.L, now = this.time.now, SP = this.C.customers.speech;
-    const fills = { arrive: 0xffffff, hurry: 0xfff1a8, thanks: 0xd6ffe0, leave: 0xffd6dc };
-    const active = [];
-    this.speech.forEach((s, i) => {
-      const c = G.customers[i];
-      if (c && c.speechId && c.speechId !== s.id) {
-        s.id = c.speechId;
-        s.start = now;
-        s.dur = (SP[c.speechKind + 'Sec'] || 2.5) * 1000;
-        s.kind = c.speechKind;
-        s.text.setText(c.speech);
-      }
-      s.g.setVisible(false);
-      s.text.setVisible(false);
-      if (s.id && now - s.start <= s.dur && !G.gameOver && !this.overlay) active.push(i);
-    });
-
-    if (L.portrait) {
-      if (!active.length) return;
-      const i = active.reduce((best, k) => (this.speech[k].start > this.speech[best].start ? k : best));
-      const st = L.speechStrip, r = L.cards[i];
-      const tail = st.h * 0.18;
-      this.drawBubble(this.speech[i], fills, st.x, st.y + tail, st.w, st.h - tail * 1.4,
-        Math.max(11 * window.ERA_DPR, L.W * 0.032), { x: r.x + r.w / 2, y: st.y + 2, up: true });
-      return;
-    }
-    for (const i of active) {
-      const r = L.cards[i];
-      // Same geometry as the horizontal card layout in drawCard: bubble fills the name area.
-      const pad = Math.min(r.w, r.h) * 0.08;
-      const ar = Math.min(r.h * 0.34, r.w * 0.2);
-      const ax = r.x + pad + ar;
-      const left = ax + ar * 0.85 + ar * 0.55 + pad * 0.5;
-      const barTop = r.y + r.h - pad - Math.max(4, r.h * 0.1);
-      const tail = Math.min(r.h * 0.1, pad * 1.2);
-      this.cards[i].name.setVisible(false);
-      this.drawBubble(this.speech[i], fills, left + tail, r.y + pad * 0.6, r.x + r.w - pad * 0.6 - left - tail,
-        barTop - r.y - pad * 1.2, r.h * 0.15, { x: left, y: r.y + r.h * 0.42, up: false });
-    }
-  }
-
-  // One rounded bubble with a tail toward (tip.x, tip.y). The font shrinks until the line fits the box.
-  drawBubble(s, fills, bx, by, bw, bh, fontPx, tip) {
-    const t = this.time.now - s.start;
-    const a = Math.max(0, Math.min(1, t / 120, (s.dur - t) / 300));
-    let fs = Math.round(fontPx);
-    const ip = Math.max(3, bh * 0.08);
-    const minFs = Math.round(8 * window.ERA_DPR);
-    s.text.setFontSize(fs).setWordWrapWidth(bw - ip * 2);
-    while (s.text.height > bh - ip * 2 && fs > minFs) {
-      fs = Math.max(minFs, Math.floor(fs * 0.9));
-      s.text.setFontSize(fs).setWordWrapWidth(bw - ip * 2);
-    }
-    const g = s.g.clear().setVisible(true).setAlpha(a).setDepth(30);
-    const fill = fills[s.kind] || 0xffffff, line = Math.max(2, fs * 0.12), rad = Math.min(bh * 0.3, fs * 0.6);
-    g.fillStyle(fill, 1).fillRoundedRect(bx, by, bw, bh, rad);
-    g.lineStyle(line, 0x241b3d, 1).strokeRoundedRect(bx, by, bw, bh, rad);
-    const half = Math.max(5, fs * 0.45);
-    if (tip.up) {
-      const tx = Phaser.Math.Clamp(tip.x, bx + half * 2, bx + bw - half * 2);
-      g.fillStyle(fill, 1).fillTriangle(tx - half, by + line, tx + half, by + line, tx, tip.y);
-      g.lineStyle(line, 0x241b3d, 1).lineBetween(tx - half, by, tx, tip.y).lineBetween(tx + half, by, tx, tip.y);
-    } else {
-      const ty = Phaser.Math.Clamp(tip.y, by + half * 2, by + bh - half * 2);
-      g.fillStyle(fill, 1).fillTriangle(bx + line, ty - half, bx + line, ty + half, tip.x, ty);
-      g.lineStyle(line, 0x241b3d, 1).lineBetween(bx, ty - half, tip.x, ty).lineBetween(bx, ty + half, tip.x, ty);
-    }
-    s.text.setVisible(true).setAlpha(a).setDepth(31)
-      .setPosition(bx + ip, by + (bh - s.text.height) / 2);
   }
 
   cardFx(key, r) {
@@ -487,7 +407,7 @@ class UIScene extends Phaser.Scene {
   overlayClick(x, y) {
     const ov = this.overlay;
     for (const b of ov.buttons) {
-      if (this.inRect(b.rect, x, y)) { b.fn(); return; }
+      if (this.inRect(b.rect, x, y)) { EraAudio.play('click'); b.fn(); return; }
     }
     if (ov.type === 'book' && !this.inRect(ov.panel, x, y)) this.closeBookOverlay();
   }
@@ -518,25 +438,134 @@ class UIScene extends Phaser.Scene {
     const g = this.add.graphics().setDepth(100);
     this.overlay.objs.push(g);
     g.fillStyle(0x0b0818, 0.7).fillRect(0, 0, W, H);
-    const pw = Math.min(W * 0.86, H * 0.8), ph = Math.min(H * 0.6, pw * 1.1);
+    const pw = Math.min(W * 0.86, H * 0.75), ph = Math.min(H * 0.8, pw * 1.3);
     const px = (W - pw) / 2, py = (H - ph) / 2;
     g.fillStyle(0x2f2552, 1).fillRoundedRect(px, py, pw, ph, pw * 0.06);
     g.lineStyle(Math.max(3, pw * 0.01), 0xbfe9ff, 0.8).strokeRoundedRect(px, py, pw, ph, pw * 0.06);
     this.overlay.panel = { x: px, y: py, w: pw, h: ph };
-    this.ovText('CAPSULE FULL!', W / 2, py + ph * 0.14, pw * 0.09, '#ffe066');
-    this.ovText('SCORE', W / 2, py + ph * 0.3, pw * 0.05, '#cfc6ff');
-    this.ovText(String(G.score), W / 2, py + ph * 0.4, pw * 0.12);
-    this.ovText('BEST ' + G.best, W / 2, py + ph * 0.52, pw * 0.055, '#cfc6ff');
-    const bw = pw * 0.7, bh = ph * 0.13;
-    this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.62, w: bw, h: bh }, 'PLAY AGAIN', 0x2fb86a, () => {
-      this.closeOverlay();
-      this.G.restartGame();
+    this.ovText('CAPSULE FULL!', W / 2, py + ph * 0.1, pw * 0.09, '#ffe066');
+    this.ovText(G.doubled ? 'SCORE x2' : 'SCORE', W / 2, py + ph * 0.21, pw * 0.05, G.doubled ? '#62ff8a' : '#cfc6ff');
+    this.ovText(String(G.score), W / 2, py + ph * 0.29, pw * 0.12);
+    this.ovText('BEST ' + G.best, W / 2, py + ph * 0.38, pw * 0.055, '#cfc6ff');
+    const bw = pw * 0.76, bh = ph * 0.12;
+
+    // Rewarded ads: revive (clears the top of the capsule) and double the final score.
+    const offers = [];
+    if (G.canRevive()) offers.push({ label: 'REVIVE', color: 0xf28b30, fn: () => this.showAd('rewarded', () => { this.closeOverlay(); G.revive(); }) });
+    if (G.canDoubleScore()) offers.push({ label: '2x SCORE', color: 0xe0ac34, fn: () => this.showAd('rewarded', () => { G.doubleScore(); this.closeOverlay(true); this.openOverlay('gameover'); }) });
+    const gap = pw * 0.04, ow = offers.length > 1 ? (bw - gap) / 2 : bw;
+    offers.forEach((o, i) => {
+      const rect = { x: W / 2 - bw / 2 + i * (ow + gap), y: py + ph * 0.46, w: ow, h: bh };
+      this.ovButton(g, rect, o.label, o.color, o.fn);
+      this.adBadge(g, rect);
     });
-    this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.8, w: bw, h: bh }, 'CUSTOMER BOOK ' + EraStorage.bookCount() + '/42', 0x6a3fd0, () => {
+
+    this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.64, w: bw, h: bh }, 'PLAY AGAIN', 0x2fb86a, () => {
+      // Interstitial between sessions.
+      this.gamesSinceAd = (this.gamesSinceAd || 0) + 1;
+      const restart = () => { this.closeOverlay(); this.G.restartGame(); };
+      if (this.gamesSinceAd >= this.C.ads.interstitialEveryGames) {
+        this.gamesSinceAd = 0;
+        this.showAd('interstitial', restart);
+      } else {
+        restart();
+      }
+    });
+    this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.81, w: bw, h: bh }, 'CUSTOMER BOOK ' + EraStorage.bookCount() + '/42', 0x6a3fd0, () => {
       this.closeOverlay(true);
       this.openOverlay('book');
     });
   }
+
+  // Small "AD" tag on the corner of a rewarded button.
+  adBadge(g, r) {
+    const h = r.h * 0.42, w = h * 1.5, x = r.x + r.w - w * 0.75, y = r.y - h * 0.45;
+    g.fillStyle(0xffe066, 1).fillRoundedRect(x, y, w, h, h * 0.3);
+    g.lineStyle(Math.max(2, h * 0.08), 0x241b3d, 1).strokeRoundedRect(x, y, w, h, h * 0.3);
+    this.ovText('AD', x + w / 2, y + h / 2, h * 0.6, '#241b3d').setStroke('#241b3d', 0).setDepth(102);
+  }
+
+  // Sound toggle icon: a speaker with waves, or with a cross when muted.
+  drawSpeaker(g, r, muted) {
+    const s = Math.min(r.w, r.h) * 0.62, cx = r.x + r.w / 2 - s * 0.12, cy = r.y + r.h / 2;
+    g.fillStyle(0xffffff, 1).fillRect(cx - s * 0.42, cy - s * 0.15, s * 0.22, s * 0.3);
+    g.fillTriangle(cx - s * 0.22, cy - s * 0.15, cx + s * 0.08, cy - s * 0.42, cx + s * 0.08, cy + s * 0.42);
+    g.fillTriangle(cx - s * 0.22, cy - s * 0.15, cx - s * 0.22, cy + s * 0.15, cx + s * 0.08, cy + s * 0.42);
+    const lw = Math.max(2, s * 0.09);
+    g.lineStyle(lw, 0xffffff, 1);
+    if (muted) {
+      g.lineBetween(cx + s * 0.2, cy - s * 0.18, cx + s * 0.52, cy + s * 0.18).lineBetween(cx + s * 0.2, cy + s * 0.18, cx + s * 0.52, cy - s * 0.18);
+    } else {
+      for (const k of [0.25, 0.45]) {
+        g.beginPath();
+        g.arc(cx + s * 0.08, cy, s * k, -0.75, 0.75);
+        g.strokePath();
+      }
+    }
+  }
+
+  // ---------- Placeholder ads (no ad network: a short countdown screen) ----------
+  // kind: 'interstitial' | 'rewarded'. onDone runs when the countdown ends.
+  showAd(kind, onDone) {
+    if (this.ad) return;
+    this.cancelPress();
+    EraAudio.pauseMusic();
+    this.ad = { kind, onDone, start: this.time.now, dur: this.C.ads.durationSec * 1000, objs: [] };
+    this.buildAd();
+  }
+
+  buildAd() {
+    const ad = this.ad, { W, H } = this.L, m = Math.min(W, H);
+    for (const o of ad.objs) o.destroy();
+    ad.objs = [];
+    const text = (str, x, y, size, color) => {
+      const t = this.add.text(x, y, str, {
+        fontFamily: FONT, fontStyle: '900', fontSize: Math.round(size) + 'px', color, align: 'center',
+      }).setOrigin(0.5).setDepth(202);
+      ad.objs.push(t);
+      return t;
+    };
+    const g = this.add.graphics().setDepth(200);
+    ad.objs.push(g);
+    g.fillStyle(0x07050f, 0.97).fillRect(0, 0, W, H);
+    // The "ad creative": an empty frame where a real ad would play.
+    const bw = Math.min(W * 0.84, H * 1.2), bh = Math.min(bw * 0.62, H * 0.5);
+    const bx = (W - bw) / 2, by = H * 0.42 - bh / 2;
+    g.fillStyle(0x1a1430, 1).fillRoundedRect(bx, by, bw, bh, m * 0.02);
+    g.lineStyle(Math.max(2, m * 0.004), 0x5a5478, 1).strokeRoundedRect(bx, by, bw, bh, m * 0.02);
+    text('ADVERTISEMENT', W / 2, by - m * 0.045, m * 0.028, '#8f86b8');
+    text('AD PLACEHOLDER', W / 2, by + bh * 0.4, Math.min(bw * 0.07, m * 0.06), '#cfc6ff');
+    text(ad.kind === 'rewarded' ? 'Watch to get your reward' : 'Your next game starts soon', W / 2, by + bh * 0.58, Math.min(bw * 0.04, m * 0.032), '#8f86b8');
+    ad.ring = this.add.graphics().setDepth(201);
+    ad.objs.push(ad.ring);
+    ad.r = m * 0.07;
+    ad.cx = W / 2;
+    ad.cy = by + bh + ad.r * 1.7;
+    ad.num = text('', ad.cx, ad.cy, ad.r * 0.9, '#ffffff');
+    ad.sub = text('', W / 2, ad.cy + ad.r * 1.6, m * 0.03, '#cfc6ff');
+    this.updateAd();
+  }
+
+  updateAd() {
+    const ad = this.ad, t = this.time.now - ad.start;
+    if (t >= ad.dur) {
+      for (const o of ad.objs) o.destroy();
+      this.ad = null;
+      if (ad.kind === 'rewarded') EraAudio.play('reward');
+      ad.onDone();
+      return;
+    }
+    const left = Math.ceil((ad.dur - t) / 1000);
+    ad.num.setText(String(left));
+    ad.sub.setText(ad.kind === 'rewarded' ? 'Reward in ' + left + 's' : 'Ad ends in ' + left + 's');
+    const g = ad.ring.clear(), lw = ad.r * 0.16;
+    g.lineStyle(lw, 0xffffff, 0.15).strokeCircle(ad.cx, ad.cy, ad.r);
+    g.lineStyle(lw, 0x22e3ff, 1);
+    g.beginPath();
+    g.arc(ad.cx, ad.cy, ad.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (t / ad.dur));
+    g.strokePath();
+  }
+
 
   // Capsule skins: the default plus one per era, unlocked by collecting all 6 hybrids with that era's look.
   buildSkinStrip(g, x, y, w, h) {

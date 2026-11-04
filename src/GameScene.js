@@ -10,6 +10,7 @@ class GameScene extends Phaser.Scene {
   preload() {
     EraArt.buildLogo(this);
     EraArt.preload(this);
+    EraAudio.preload(this);
     if (this.load.list.size > 0) this.showLoadingBar(); // nothing queued on restart
   }
 
@@ -46,6 +47,8 @@ class GameScene extends Phaser.Scene {
     const cap = C.capsule;
 
     EraArt.build(this);
+    EraAudio.init(this);
+    EraAudio.startMusic();
 
     // Capsule frame art: scale it so its inner opening matches the capsule interior.
     const F = EraArt.frame;
@@ -98,13 +101,15 @@ class GameScene extends Phaser.Scene {
     this.pendingDrop = false;
     this.customers = new Array(C.customers.maxSlots).fill(null);
     this.customersSpawned = 0;
-    this.speechSeq = this.speechSeq || 0;
     this.spawnTimerMs = C.customers.firstCustomerDelayMs;
     this.dangerActive = false;
     this.combo = 0;
     this.lastMergeAt = -1e9;
     this.storm = null;
     this.nextStormAt = C.storms.firstAtSec;
+    this.revivesUsed = 0;
+    this.doubled = false;
+    this.tickAt = 0;
 
     this.matter.world.on('collisionstart', this.onCollide, this);
     this.matter.world.on('collisionactive', this.onCollide, this);
@@ -270,6 +275,7 @@ class GameScene extends Phaser.Scene {
     const r = this.C.bubbleRadius[this.currentTier];
     const x = Phaser.Math.Clamp(this.aimX, r, cap.width - r);
     this.spawnBubble(this.currentTier, x, cap.dropY, false);
+    EraAudio.play('drop');
     this.canDrop = false;
     this.time.delayedCall(this.C.drop.cooldownMs, () => {
       this.currentTier = this.nextTier;
@@ -346,6 +352,8 @@ class GameScene extends Phaser.Scene {
         const nb = this.spawnBubble(tier + 1, x, y, true);
         nb.img.setScale(0.7 / EraDraw.TEX_SCALE);
         this.tweens.add({ targets: nb.img, scale: 1 / EraDraw.TEX_SCALE, duration: 160, ease: 'Back.Out' });
+        const A = this.C.audio;
+        EraAudio.play('merge', { rate: (A.mergePitchBase + A.mergePitchPerTier * tier) * (1 + A.comboPitchStep * (this.combo - 1)) });
         const pts = Math.round(S.mergePoints[tier + 1] * mult);
         this.addScore(pts);
         this.popText(x, y, '+' + pts + comboTag, this.combo > 1 ? '#ffe066' : '#ffffff', this.combo > 1 ? 1.2 : 1);
@@ -354,6 +362,7 @@ class GameScene extends Phaser.Scene {
         if (this.combo > 1) this.fx('fx_stars', x, y, size * 1.2, 700);
       } else {
         // Two Rockets merge and disappear.
+        EraAudio.play('rocket');
         const pts = Math.round(S.rocketPopPoints * mult);
         this.addScore(pts);
         this.popText(x, y, 'POP! +' + pts + comboTag, '#ffe066', 1.6);
@@ -475,16 +484,7 @@ class GameScene extends Phaser.Scene {
       look, job, tier: job, name: ERA_DATA.customerName(look, job), mult,
       gentle: this.customersSpawned <= CC.gentleCustomers,
       timeLeft: total, timeTotal: total, state: 'waiting', age: 0, leaveT: 0, result: null, points: 0, tip: 0,
-      hurried: false, speech: null, speechKind: null, speechId: 0,
     };
-    this.say(this.customers[slot], 'arrive');
-  }
-
-  // Give a customer a new line to say; UIScene shows it in a speech bubble (new speechId = new bubble).
-  say(c, moment) {
-    c.speech = ERA_DATA.line(c.look, c.job, moment);
-    c.speechKind = moment;
-    c.speechId = ++this.speechSeq;
   }
 
   // ---------- Time storms ----------
@@ -504,6 +504,7 @@ class GameScene extends Phaser.Scene {
       : type === 'merge' ? 'Merge frenzy! Merges x' + ST.mergeMultiplier
       : 'Rush hour! Orders x' + ST.rushOrderMultiplier;
     this.storm = { type, look, label, endsAt: this.elapsed + ST.durationSec };
+    EraAudio.play('storm');
     if (type === 'rush') this.spawnTimerMs = Math.min(this.spawnTimerMs, 500);
   }
 
@@ -527,10 +528,6 @@ class GameScene extends Phaser.Scene {
       c.age += dt;
       if (c.state === 'waiting') {
         c.timeLeft -= dt;
-        if (!c.hurried && c.timeLeft < c.timeTotal * CC.speech.hurryAtFraction) {
-          c.hurried = true;
-          this.say(c, 'hurry');
-        }
         if (c.timeLeft <= 0) {
           c.timeLeft = 0;
           const pen = c.gentle ? 0 : this.C.scoring.timeoutPenalty[c.tier];
@@ -538,7 +535,7 @@ class GameScene extends Phaser.Scene {
           c.state = 'leaving';
           c.result = 'timeout';
           c.points = -pen;
-          this.say(c, 'leave');
+          EraAudio.play('timeout');
         }
       } else if (c.state === 'leaving') {
         c.leaveT += dt;
@@ -571,7 +568,7 @@ class GameScene extends Phaser.Scene {
     c.result = 'served';
     c.points = bonus + tip;
     c.tip = tip;
-    this.say(c, 'thanks');
+    EraAudio.play('serve');
     let isNew = false, eraDone = false;
     if (c.look !== c.job) {
       isNew = EraStorage.addToBook(c.look, c.job);
@@ -602,12 +599,18 @@ class GameScene extends Phaser.Scene {
       }
     }
     this.dangerActive = danger;
+    if (danger && this.elapsed * 1000 >= this.tickAt) {
+      this.tickAt = this.elapsed * 1000 + this.C.audio.dangerTickMs;
+      EraAudio.play('tick');
+    }
   }
 
   endGame() {
     this.gameOver = true;
     this.dangerActive = true;
     this.matter.world.pause();
+    EraAudio.pauseMusic();
+    EraAudio.play('gameover');
     if (this.score > this.best) {
       this.best = this.score;
       EraStorage.saveBest(this.best);
@@ -616,6 +619,47 @@ class GameScene extends Phaser.Scene {
 
   restartGame() {
     this.scene.restart();
+  }
+
+  // ---------- Rewarded ad results ----------
+  canRevive() {
+    return this.gameOver && !this.doubled && this.revivesUsed < this.C.ads.revivesPerRun;
+  }
+
+  // Clear the top of the capsule and carry on.
+  revive() {
+    if (!this.canRevive()) return;
+    this.revivesUsed++;
+    const limit = this.C.capsule.dangerLineY + this.C.ads.reviveClearDepth;
+    for (const b of this.bubbles.slice()) {
+      if (b.body.position.y - b.r < limit) {
+        this.fx('fx_puff', b.body.position.x, b.body.position.y, b.r * 2.6, 500);
+        this.removeBubble(b);
+      }
+    }
+    for (const b of this.bubbles) b.aboveMs = 0;
+    this.mergeQueue = this.mergeQueue.filter(([a, b]) => !a.removed && !b.removed);
+    this.gameOver = false;
+    this.dangerActive = false;
+    this.canDrop = true;
+    this.pendingDrop = false;
+    this.matter.world.resume();
+    EraAudio.startMusic();
+  }
+
+  canDoubleScore() {
+    return this.gameOver && this.C.ads.doubleScore && !this.doubled && this.score > 0;
+  }
+
+  // Doubles the final score; this ends the run (no revive afterwards).
+  doubleScore() {
+    if (!this.canDoubleScore()) return;
+    this.doubled = true;
+    this.score *= 2;
+    if (this.score > this.best) {
+      this.best = this.score;
+      EraStorage.saveBest(this.best);
+    }
   }
 
   update(time, delta) {

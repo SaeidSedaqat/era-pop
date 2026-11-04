@@ -10,15 +10,16 @@ Built with [Phaser 4.2.1](https://phaser.io) (vendored in `lib/`) and Matter.js 
 
 - **Drop:** touch or click inside the capsule, move to aim, release to drop. With a mouse, the bubble follows the cursor.
 - **Merge:** two identical bubbles that touch merge into the next tier: Wheel, Cart, Carriage, Bicycle, Car, Plane, Rocket. Two Rockets merge and disappear. Merges in quick succession build a combo multiplier.
-- **Customers talk:** speech bubbles when they order, get impatient, get served or give up. The look sets the voice, the job sets what they want.
 - **Serve:** drag a bubble onto the customer who ordered it (bubbles someone ordered glow). Serve fast for a tip. A plain tap anywhere in the capsule (even on a bubble) just drops.
 - Orders time out and cost points. You lose when the stack stays above the dashed line.
 - **Time storms:** every few minutes the portal glitches for 15 s: an era invasion, a merge frenzy, or a rush hour, each with bonus rewards.
 - **Customer Book:** every hybrid customer you serve is collected (42 in total) and saved in your browser. Collecting all 6 hybrids with one era's look unlocks that era's capsule skin.
+- **Sound:** background music and sound effects (all CC0, credits in [`assets/audio/CREDITS.txt`](assets/audio/CREDITS.txt)). The speaker button mutes everything and is remembered.
+- **Ads (placeholders):** no ad network is wired in. A 3-second countdown screen stands in for each ad: an interstitial before "Play again", and rewarded ads on the game over screen for **Revive** (clears the top of the capsule, once per run) and **2x score** (doubles the final score, ends the run).
 
 ## Tuning
 
-Every balancing value (scoring, timers, penalties, order ramp-up, customer slots, physics) is in [`src/config.js`](src/config.js).
+Every balancing value (scoring, timers, penalties, order ramp-up, customer slots, physics, audio volumes, ad timing)) is in [`src/config.js`](src/config.js).
 
 ## Project layout
 
@@ -28,6 +29,7 @@ Every balancing value (scoring, timers, penalties, order ramp-up, customer slots
 | `src/data.js` | Merge chain and eras |
 | `src/draw.js` | Code-drawn fallback art (used if a sheet is missing) |
 | `src/art.js` | Slices the art in `assets/` into textures at load time |
+| `src/audio.js` | Music, sound effects and mute |
 | `src/BgScene.js` | Background picture behind everything |
 | `src/storage.js` | Best score and Customer Book (localStorage) |
 | `src/GameScene.js` | Capsule, physics, merging, customers, scoring |

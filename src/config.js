@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.97',
+  version: '0.1.118',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -104,10 +104,27 @@ window.ERA_POP_CONFIG = {
       { atSec: 200, min: 2, max: 6 },
       { atSec: 280, min: 3, max: 6 },
     ],
-    // Speech bubbles: how long each kind of line stays up, and when customers start complaining.
-    speech: { arriveSec: 3.2, hurrySec: 2.6, thanksSec: 2.2, leaveSec: 2.4, hurryAtFraction: 0.3 },
     arriveSec: 0.35,             // card fade-in
     leaveSec: 0.8,               // card fade-out after serve / timeout
+  },
+
+  // ---- Audio ----
+  audio: {
+    musicVolume: 0.35,
+    sfxVolume: { default: 0.6, drop: 0.5, merge: 0.7, tick: 0.35, gameover: 0.7 },
+    mergePitchBase: 1.35,        // smallest merge plays at this rate...
+    mergePitchPerTier: -0.08,    // ...each bigger tier a bit lower
+    comboPitchStep: 0.06,        // each combo step raises the pitch a little
+    dangerTickMs: 500,           // tick while a bubble is above the danger line
+  },
+
+  // ---- Ads (placeholders only: no ad network, just a countdown screen) ----
+  ads: {
+    durationSec: 3,              // length of every placeholder ad
+    interstitialEveryGames: 1,   // show an interstitial before every Nth "Play again"
+    revivesPerRun: 1,            // rewarded "Revive" uses per run
+    reviveClearDepth: 260,       // revive removes every bubble whose top is within this distance below the danger line (or above it)
+    doubleScore: true,           // rewarded "2x score" on the game over screen (once per run, ends the run)
   },
 
   // ---- Input ----
