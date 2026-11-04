@@ -539,6 +539,7 @@ class UIScene extends Phaser.Scene {
     if ((type === 'book' || type === 'pause') && !G.gameOver && !this.overlay) {
       this.cancelPress();
       G.scene.pause();
+      EraStorage.gameplayStop();
     }
     this.overlay = { type, objs: [], buttons: [] };
     if (type === 'gameover') this.buildGameOver();
@@ -552,7 +553,10 @@ class UIScene extends Phaser.Scene {
     const type = this.overlay.type;
     for (const o of this.overlay.objs) o.destroy();
     this.overlay = null;
-    if (!keepPaused && (type === 'book' || type === 'pause') && !this.G.gameOver) this.G.scene.resume();
+    if (!keepPaused && (type === 'book' || type === 'pause') && !this.G.gameOver) {
+      this.G.scene.resume();
+      EraStorage.gameplayStart();
+    }
   }
 
   overlayClick(x, y) {

@@ -68,6 +68,14 @@ window.EraStorage = (function () {
     backend = 'crazygames';
   }
 
+  // CrazyGames game events (gameplayStart/Stop, loadingStart/Stop). No-ops off CrazyGames; never throw.
+  // gameplayStart/Stop are deduped so pause -> resume -> restart sequences send each change once.
+  let playing = false;
+  function sdkGame(name) {
+    if (backend !== 'crazygames') return;
+    try { window.CrazyGames.SDK.game[name](); } catch (e) { /* SDK call failed: the game keeps running */ }
+  }
+
   let book = new Set();
 
   return {
@@ -75,8 +83,13 @@ window.EraStorage = (function () {
     async init() {
       try { await initSdk(); } catch (e) { console.warn('[EraStorage] using localStorage:', e && (e.message || e.code || e)); }
       book = new Set(read(BOOK_KEY, []));
+      this.loadingStart();   // the art and audio download next (GameScene.preload)
     },
     backend() { return backend; },
+    gameplayStart() { if (!playing) { playing = true; sdkGame('gameplayStart'); } },
+    gameplayStop() { if (playing) { playing = false; sdkGame('gameplayStop'); } },
+    loadingStart() { sdkGame('loadingStart'); },
+    loadingStop() { sdkGame('loadingStop'); },
     loadBest() { return Number(read(BEST_KEY, 0)) || 0; },
     saveBest(v) { write(BEST_KEY, v); },
     hasInBook(look, job) { return book.has(look + '-' + job); },

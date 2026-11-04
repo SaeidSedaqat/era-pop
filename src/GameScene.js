@@ -54,6 +54,7 @@ class GameScene extends Phaser.Scene {
     this.C = C;
     const cap = C.capsule;
 
+    if (!this.loadedOnce) { this.loadedOnce = true; EraStorage.loadingStop(); }
     EraArt.build(this);
     EraAudio.init(this);
     EraAudio.startMusic();
@@ -129,6 +130,7 @@ class GameScene extends Phaser.Scene {
     this.matter.world.on('collisionactive', this.onCollide, this);
     this.matter.world.on('collisionstart', this.onHitSpin, this);
 
+    EraStorage.gameplayStart();   // every new run (first load and restarts)
     if (!this.scene.isActive('UI')) this.scene.launch('UI');
     else this.scene.get('UI').onGameRestart();
   }
@@ -695,6 +697,7 @@ class GameScene extends Phaser.Scene {
     this.gameOver = true;
     this.dangerActive = true;
     this.matter.world.pause();
+    EraStorage.gameplayStop();
     EraAudio.pauseMusic();
     EraAudio.play('gameover');
     if (this.score > this.best) {
@@ -744,6 +747,7 @@ class GameScene extends Phaser.Scene {
     this.canDrop = true;
     this.pendingDrop = false;
     this.matter.world.resume();
+    EraStorage.gameplayStart();
     EraAudio.startMusic();
   }
 
