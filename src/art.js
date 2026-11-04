@@ -10,6 +10,10 @@
 
 window.EraArt = (function () {
   const PORTRAIT = 320;
+  // Sheets whose figures aren't in the standard order: job of each figure in reading order.
+  const SHEET_JOBS = {
+    6: [2, 0, 1, 3, 4, 5, 6], // Future: Knight, Caveman, Farmer, Gentleman, Greaser, Pilot, Astronaut
+  };
 
   function preload(scene) {
     if (scene.textures.exists('cust_0_0')) return;
@@ -276,8 +280,11 @@ window.EraArt = (function () {
     if (scene.textures.exists('cust_0_0')) return buildSceneArt(scene);
     for (let look = 0; look < 7; look++) {
       const parts = sheetParts(scene, 'sheet_era' + look, [4, 3]);
-      const jobs = [look];
-      for (let j = 0; j < 7; j++) if (j !== look) jobs.push(j);
+      let jobs = SHEET_JOBS[look];
+      if (!jobs) {
+        jobs = [look];
+        for (let j = 0; j < 7; j++) if (j !== look) jobs.push(j);
+      }
       jobs.forEach((job, k) => {
         makePortrait(scene, look, job, parts && parts[k], false);
         makePortrait(scene, look, job, parts && parts[k], true);
