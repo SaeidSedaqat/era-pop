@@ -150,6 +150,13 @@
       b.classList.toggle('on', window.ERA_DEBUG.phys);
     }],
     ['ad', () => { const u = UI(); if (u) u.showAd('rewarded', () => {}); }],
+    ['all customers', () => {
+      const u = UI();
+      if (!u) return;
+      if (u.overlay) u.closeOverlay(true);
+      window.ERA_DEBUG.showAll = true;
+      u.openOverlay('book');
+    }],
   ]);
   row('Save data', [
     ['unlock book', () => {

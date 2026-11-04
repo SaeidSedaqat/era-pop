@@ -568,6 +568,7 @@ class UIScene extends Phaser.Scene {
   }
 
   closeBookOverlay() {
+    if (window.ERA_DEBUG) window.ERA_DEBUG.showAll = false;
     if (this.bookFromPause) {
       this.bookFromPause = false;
       this.closeOverlay(true);
@@ -758,17 +759,19 @@ class UIScene extends Phaser.Scene {
     this.overlay.panel = { x: px, y: py, w: pw, h: ph };
 
     const titleH = ph * 0.1;
-    this.ovText('CUSTOMER BOOK  ' + EraStorage.bookCount() + '/42', px + pw * 0.05, py + titleH * 0.55, Math.min(titleH * 0.42, pw * 0.05), '#ffe066', [0, 0.5]);
+    // Debug "all customers" view: every look x job (originals too), all shown unlocked, without touching the save.
+    const all = !!(window.ERA_DEBUG && window.ERA_DEBUG.showAll);
+    this.ovText(all ? 'ALL CUSTOMERS  49' : 'CUSTOMER BOOK  ' + EraStorage.bookCount() + '/42', px + pw * 0.05, py + titleH * 0.55, Math.min(titleH * 0.42, pw * 0.05), '#ffe066', [0, 0.5]);
     const cb = titleH * 0.7;
     this.ovButton(g, { x: px + pw - cb - pw * 0.03, y: py + titleH * 0.55 - cb / 2, w: cb, h: cb }, 'X', 0xff4f6a, () => this.closeBookOverlay());
 
     // Collection: the 42 hybrid customers as cards, undiscovered ones shown as silhouettes.
     const entries = [];
-    for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) if (l !== j) entries.push([l, j]);
+    for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) if (all || l !== j) entries.push([l, j]);
     const gx = px + pw * 0.03, gy = py + titleH, gw = pw * 0.94, gh = ph - titleH - pw * 0.04;
     const aspect = 1.3; // card height / width
     let cols = 7, size = 0;
-    for (let c = 3; c <= 14; c++) {
+    for (let c = all ? 7 : 3; c <= (all ? 7 : 14); c++) { // the all view keeps one era per row
       const rows = Math.ceil(entries.length / c);
       const s = Math.min(gw / c, gh / rows / aspect);
       if (s > size) { size = s; cols = c; }
@@ -780,7 +783,7 @@ class UIScene extends Phaser.Scene {
     entries.forEach(([l, j], i) => {
       const x = ox + (i % cols) * size + gap / 2, y = oy + Math.floor(i / cols) * size * aspect + gap / 2;
       const w = size - gap, h = size * aspect - gap;
-      const found = EraStorage.hasInBook(l, j);
+      const found = all || EraStorage.hasInBook(l, j);
       g.fillStyle(found ? 0x4a3d7a : 0x221d38, 1).fillRoundedRect(x, y, w, h, w * 0.1);
       const pic = this.add.image(x + w / 2, y + w * 0.46, (found ? 'cust_' : 'custlock_') + l + '_' + j)
         .setDisplaySize(w * 0.76, w * 0.76).setDepth(101);
