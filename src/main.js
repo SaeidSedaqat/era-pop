@@ -36,6 +36,7 @@
         matter: { gravity: { x: 0, y: C.physics.gravityY }, enableSleeping: false, debug: false },
       },
       input: { activePointers: 2 },
+      fps: { target: C.display.fps, limit: C.display.fps },
       scene: [BgScene, GameScene, UIScene],
     });
 

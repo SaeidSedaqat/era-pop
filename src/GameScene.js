@@ -506,9 +506,9 @@ class GameScene extends Phaser.Scene {
     }
     if (job === 6 && !this.rocketReachable()) job = Phaser.Math.Between(Math.min(ramp.min, 5), 5);
     let look = job;
-    // Prefer a hybrid for this order that isn't in the Customer Book yet, so the player keeps meeting new faces.
+    // Prefer a customer for this order (original or hybrid) that isn't in the Customer Book yet, so the player keeps meeting new faces.
     const locked = [];
-    for (let l = 0; l < 7; l++) if (l !== job && !EraStorage.hasInBook(l, job)) locked.push(l);
+    for (let l = 0; l < 7; l++) if (!EraStorage.hasInBook(l, job)) locked.push(l);
     if (this.storm && this.storm.type === 'era') look = this.storm.look;
     else if (locked.length) look = Phaser.Utils.Array.GetRandom(locked);
     else if (Math.random() < CC.hybridChance) {
@@ -604,7 +604,7 @@ class GameScene extends Phaser.Scene {
   }
 
   // Serve bubble b. slot === undefined: pick the waiting customer for that item with the least time left.
-  // Returns { ok, slot, isNew } — isNew is true when a hybrid joins the Customer Book for the first time.
+  // Returns { ok, slot, isNew } — isNew is true when a customer joins the Customer Book for the first time.
   serveBubble(b, slot) {
     if (b.removed || this.gameOver) return { ok: false };
     if (slot === undefined) {
@@ -630,7 +630,7 @@ class GameScene extends Phaser.Scene {
     c.points = bonus + tip;
     c.tip = tip;
     EraAudio.play('serve');
-    const isNew = c.look !== c.job && EraStorage.addToBook(c.look, c.job);
+    const isNew = EraStorage.addToBook(c.look, c.job);
     if (this.tutorial && this.tutorial.step === 'serve') this.tutorial.step = 'line';
     return { ok: true, slot, isNew, name: c.name };
   }

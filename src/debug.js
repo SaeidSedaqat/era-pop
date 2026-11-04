@@ -150,17 +150,20 @@
       b.classList.toggle('on', window.ERA_DEBUG.phys);
     }],
     ['ad', () => { const u = UI(); if (u) u.showAd('rewarded', () => {}); }],
-    ['all customers', () => {
+    ['all customers', (g, b) => {
+      // Toggle: while on, the Customer Book (from any button) shows all 49 customers unlocked. The save is untouched.
+      window.ERA_DEBUG.showAll = !window.ERA_DEBUG.showAll;
+      b.classList.toggle('on', window.ERA_DEBUG.showAll);
       const u = UI();
       if (!u) return;
-      if (u.overlay) u.closeOverlay(true);
-      window.ERA_DEBUG.showAll = true;
+      if (u.overlay && u.overlay.type === 'book') u.closeOverlay(true);
+      else if (u.overlay) return;
       u.openOverlay('book');
     }],
   ]);
   row('Save data', [
     ['unlock book', () => {
-      for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) if (l !== j) EraStorage.addToBook(l, j);
+      for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) EraStorage.addToBook(l, j);
       toast('Book unlocked');
     }],
     ['reset save', () => {

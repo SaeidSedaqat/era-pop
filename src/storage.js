@@ -37,7 +37,7 @@ window.EraStorage = (function () {
     // The first-run tutorial is shown until it has been finished once.
     tutorialDone() { return read(TUTORIAL_KEY, false) === true; },
     setTutorialDone() { write(TUTORIAL_KEY, true); },
-    // Returns true if this hybrid is new to the book.
+    // Returns true if this customer is new to the book.
     addToBook(look, job) {
       const k = look + '-' + job;
       if (book.has(k)) return false;

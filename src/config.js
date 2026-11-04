@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.223',
+  version: '0.1.234',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -130,5 +130,6 @@ window.ERA_POP_CONFIG = {
   // ---- Display ----
   display: {
     maxPixelRatio: 2,            // render at device resolution, capped for performance
+    fps: 60,                     // frame rate cap (high-refresh screens would otherwise run faster)
   },
 };

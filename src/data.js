@@ -59,8 +59,15 @@ window.ERA_DATA = {
     return served ? this.voices[look].thanks : this.voices[look].angry;
   },
 
-  // One funny story per hybrid customer, keyed 'look-job'. Shown when a collected card is tapped in the Book.
+  // One funny story per customer (7 originals + 42 hybrids), keyed 'look-job'. Shown when a collected card is tapped in the Book.
   stories: {
+    '0-0': 'Ug invented the wheel on a Tuesday and has been trying to sell it ever since. So far he has traded it for one fish, two shiny rocks and a very confused hug.',
+    '1-1': 'He farms the banks of the Nile and sings to his wheat every morning. The wheat grows tall and golden, mostly so it can get away from the singing.',
+    '2-2': 'Sir Clank has polished his armor every day for twenty years. He has never fought a dragon, but he has blinded nine of them with the shine.',
+    '3-3': 'He has never once been seen without his top hat, even in the bath. Rumor says there is a second, smaller gentleman living inside it.',
+    '4-4': 'He combs his hair forty times an hour and owns one jacket, which he has never taken off. His car has more chrome than a toaster factory.',
+    '5-5': 'He has flown through storms, over mountains and once, by accident, through a barn. He landed perfectly and told the cows it was planned.',
+    '6-6': 'He has been to Mars, Jupiter and the far side of the Moon, but he still cannot fold a map. He blames the gravity.',
     '0-1': 'Ug planted rocks for three seasons, waiting for a rock tree. When a carrot finally popped up by accident, he named it Kevin and refused to eat it.',
     '0-2': 'He jousts on a very confused goat, and his armor is mostly bark. He has never lost a duel, mainly because nobody understands the rules he grunts.',
     '0-3': 'His monocle is made of river ice and melts every afternoon. Tea time is strictly at noon, which he checks by pointing a stick at the sun and shouting.',

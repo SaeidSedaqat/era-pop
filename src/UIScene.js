@@ -568,7 +568,6 @@ class UIScene extends Phaser.Scene {
   }
 
   closeBookOverlay() {
-    if (window.ERA_DEBUG) window.ERA_DEBUG.showAll = false;
     if (this.bookFromPause) {
       this.bookFromPause = false;
       this.closeOverlay(true);
@@ -632,7 +631,7 @@ class UIScene extends Phaser.Scene {
         restart();
       }
     });
-    this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.81, w: bw, h: bh }, 'CUSTOMER BOOK ' + EraStorage.bookCount() + '/42', 0x6a3fd0, () => {
+    this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.81, w: bw, h: bh }, 'CUSTOMER BOOK ' + EraStorage.bookCount() + '/49', 0x6a3fd0, () => {
       this.closeOverlay(true);
       this.openOverlay('book');
     });
@@ -759,24 +758,20 @@ class UIScene extends Phaser.Scene {
     this.overlay.panel = { x: px, y: py, w: pw, h: ph };
 
     const titleH = ph * 0.1;
-    // Debug "all customers" view: every look x job (originals too), all shown unlocked, without touching the save.
+    // Debug "all customers" view: all 49 shown unlocked, without touching the save.
     const all = !!(window.ERA_DEBUG && window.ERA_DEBUG.showAll);
-    this.ovText(all ? 'ALL CUSTOMERS  49' : 'CUSTOMER BOOK  ' + EraStorage.bookCount() + '/42', px + pw * 0.05, py + titleH * 0.55, Math.min(titleH * 0.42, pw * 0.05), '#ffe066', [0, 0.5]);
+    this.ovText('CUSTOMER BOOK  ' + (all ? 49 : EraStorage.bookCount()) + '/49', px + pw * 0.05, py + titleH * 0.55, Math.min(titleH * 0.42, pw * 0.05), '#ffe066', [0, 0.5]);
     const cb = titleH * 0.7;
     this.ovButton(g, { x: px + pw - cb - pw * 0.03, y: py + titleH * 0.55 - cb / 2, w: cb, h: cb }, 'X', 0xff4f6a, () => this.closeBookOverlay());
 
-    // Collection: the 42 hybrid customers as cards, undiscovered ones shown as silhouettes.
+    // Collection: all 49 customers (7 originals + 42 hybrids) in a 7x7 grid, one look era per row;
+    // undiscovered ones are shown as silhouettes.
     const entries = [];
-    for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) if (all || l !== j) entries.push([l, j]);
+    for (let l = 0; l < 7; l++) for (let j = 0; j < 7; j++) entries.push([l, j]);
     const gx = px + pw * 0.03, gy = py + titleH, gw = pw * 0.94, gh = ph - titleH - pw * 0.04;
     const aspect = 1.3; // card height / width
-    let cols = 7, size = 0;
-    for (let c = all ? 7 : 3; c <= (all ? 7 : 14); c++) { // the all view keeps one era per row
-      const rows = Math.ceil(entries.length / c);
-      const s = Math.min(gw / c, gh / rows / aspect);
-      if (s > size) { size = s; cols = c; }
-    }
-    const rows = Math.ceil(entries.length / cols);
+    const cols = 7, rows = 7;
+    const size = Math.min(gw / cols, gh / rows / aspect);
     const ox = gx + (gw - size * cols) / 2, oy = gy + (gh - size * aspect * rows) / 2;
     const gap = size * 0.06;
     const fs = Math.max(8, size * 0.11);
