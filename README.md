@@ -34,7 +34,7 @@ Every balancing value (scoring, timers, penalties, order ramp-up, customer slots
 | `src/art.js` | Slices the art in `assets/` into textures at load time |
 | `src/audio.js` | Music, sound effects, music/SFX switches |
 | `src/BgScene.js` | Background picture behind everything |
-| `src/storage.js` | Best score and Customer Book (localStorage) |
+| `src/storage.js` | Saves (best score, Customer Book, settings): CrazyGames SDK Data module on CrazyGames, localStorage elsewhere |
 | `src/GameScene.js` | Capsule, physics, merging, customers, scoring |
 | `src/UIScene.js` | Responsive layout, HUD, cards, input, overlays |
 
@@ -47,6 +47,8 @@ The source runs as is, with no build step. Every push to `main` redeploys GitHub
 ```
 dotnet run --project tools/build-release
 ```
+
+The page loads the CrazyGames SDK v3, and on CrazyGames the saves go through its Data module, so pick "Yes, using the Data Module" for Progress Save when submitting there. On any other site the SDK is disabled and saves stay in localStorage. Add `?useLocalSdk=true` to the URL to try the SDK in its local mode.
 
 The tool (C#, [NUglify](https://github.com/trullock/NUglify)) bundles Phaser and every `src/` file, in `index.html` order, into one `release/game.js`. The game code is minified and its local names shortened. It also writes a minified `release/index.html` and copies `assets/` unchanged. Each GitHub release attaches the same files as `release.zip`.
 

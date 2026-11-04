@@ -8,7 +8,8 @@
       new Promise((r) => setTimeout(r, 2500)),
     ]).catch(() => {})
     : Promise.resolve();
-  fontsReady.then(start);
+  // Saves load in parallel (CrazyGames SDK init + Data module, or localStorage).
+  Promise.all([fontsReady, EraStorage.init()]).then(start);
 
   function start() {
     const C = window.ERA_POP_CONFIG;

@@ -52,8 +52,8 @@ foreach (var l in libs) bundle.Append(File.ReadAllText(Path.Combine(root, l)).Tr
 bundle.Append(min.Code);
 File.WriteAllText(Path.Combine(outDir, "game.js"), bundle.ToString(), new UTF8Encoding(false));
 
-// index.html: one script tag, then minified.
-string relHtml = Regex.Replace(html, @"\s*<script src=""[^""]+""></script>", "");
+// index.html: one script tag for the game (external scripts such as the CrazyGames SDK stay), then minified.
+string relHtml = Regex.Replace(html, @"\s*<script src=""(?!https?:)[^""]+""></script>", "");
 relHtml = relHtml.Replace("</body>", $"<script src=\"game.js?v={version}\"></script>\n</body>");
 var htmlMin = Uglify.Html(relHtml, new NUglify.Html.HtmlSettings { RemoveOptionalTags = false });
 if (htmlMin.HasErrors)
