@@ -8,7 +8,7 @@
       new Promise((r) => setTimeout(r, 2500)),
     ]).catch(() => {})
     : Promise.resolve();
-  // Saves load in parallel (CrazyGames SDK init + Data module, or localStorage).
+  // Saves load in parallel (Playgama Bridge init + its storage, or localStorage).
   Promise.all([fontsReady, EraStorage.init()]).then(start);
 
   function start() {

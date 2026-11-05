@@ -641,7 +641,7 @@ class UIScene extends Phaser.Scene {
     if ((type === 'book' || type === 'pause') && !G.gameOver && !this.overlay) {
       this.cancelPress();
       G.scene.pause();
-      EraStorage.gameplayStop();
+      EraStorage.levelPaused();
     }
     this.overlay = { type, objs: [], buttons: [] };
     if (type === 'gameover') this.buildGameOver();
@@ -657,7 +657,7 @@ class UIScene extends Phaser.Scene {
     this.overlay = null;
     if (!keepPaused && (type === 'book' || type === 'pause') && !this.G.gameOver) {
       this.G.scene.resume();
-      EraStorage.gameplayStart();
+      EraStorage.levelResumed();
     }
   }
 
@@ -713,17 +713,24 @@ class UIScene extends Phaser.Scene {
     this.ovText('BEST ' + G.best, W / 2, py + ph * 0.38, pw * 0.055, '#cfc6ff');
     const bw = pw * 0.76, bh = ph * 0.12;
 
-    // Revive (clears the top of the capsule), once per run. Free for now; a rewarded ad goes here at full launch.
+    // Revive (clears the top of the capsule), once per run: behind a rewarded ad where the platform has
+    // them (reward only on the 'rewarded' state), free otherwise.
     if (G.canRevive()) {
-      this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.46, w: bw, h: bh }, 'REVIVE', 0xf28b30, () => {
-        EraAudio.play('reward');
-        this.closeOverlay();
-        G.revive();
+      const ad = EraStorage.rewardedAvailable();
+      this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.46, w: bw, h: bh }, ad ? 'AD: REVIVE' : 'REVIVE', 0xf28b30, () => {
+        if (this.adBusy) return;
+        this.adBusy = true;
+        EraStorage.showRewarded(() => {
+          EraAudio.play('reward');
+          if (this.overlay && this.overlay.type === 'gameover') this.closeOverlay();
+          G.revive();
+        }, () => { this.adBusy = false; });
       });
     }
 
     this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.64, w: bw, h: bh }, 'RESTART', 0x2fb86a, () => {
       this.closeOverlay();
+      EraStorage.showInterstitial();
       this.G.restartGame();
     });
     this.ovButton(g, { x: W / 2 - bw / 2, y: py + ph * 0.81, w: bw, h: bh }, 'CUSTOMER BOOK ' + EraStorage.bookCount() + '/49', 0x6a3fd0, () => {
