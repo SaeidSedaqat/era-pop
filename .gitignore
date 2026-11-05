@@ -3,3 +3,4 @@ Thumbs.db
 _site/
 tools/build-release/bin/
 tools/build-release/obj/
+release.zip
