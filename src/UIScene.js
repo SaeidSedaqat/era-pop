@@ -112,9 +112,18 @@ class UIScene extends Phaser.Scene {
           .setOrigin(0.5, 0).setDepth(2).setVisible(false),
         order: this.add.image(0, 0, 'bubble0').setVisible(false).setDepth(2),
         float: txt([0.5, 0.5]).setVisible(false).setDepth(3),
+        hint: this.add.text(0, 0, '', { fontFamily: ERA_FONTS.body, fontStyle: 'bold', color: '#cfc6ff', align: 'center' })
+          .setOrigin(0.5, 0.5).setDepth(2).setVisible(false),
         rect: null,
       });
     }
+    // Landscape side panel: the item ladder (what merges into what) and a Customer Book button.
+    this.itemsLabel = txt([0.5, 0]).setText('MERGE LADDER').setColor('#cfc6ff');
+    this.ladder = [];
+    for (let t = 0; t < this.C.bubbleRadius.length; t++) this.ladder.push(this.add.image(0, 0, 'bubble' + t));
+    this.bookText = txt([0, 0.5]);
+    this.skipText = txt([0.5, 0.5]).setText('SKIP').setDepth(57).setVisible(false);
+    this.comboText = txt([0.5, 0.5]).setDepth(56).setVisible(false).setColor('#ffe066');
     this.ghost = this.add.image(0, 0, 'bubble0').setVisible(false).setAlpha(0.9).setDepth(50);
     this.toastText = txt([0.5, 0.5]).setDepth(60).setVisible(false);
     this.stormText = txt([0.5, 0]).setDepth(55).setVisible(false).setColor('#ffe066');
@@ -175,6 +184,10 @@ class UIScene extends Phaser.Scene {
       L.next = { x: W * 0.5 + hudH * 0.15, y: hudH * 0.5, r: hudH * 0.36 };
       const mw = hudH * 0.64;
       L.pauseBtn = { x: W - pad * 2 - mw, y: hudH * 0.5 - mw / 2, w: mw, h: mw };
+      L.bookBtn = { x: L.pauseBtn.x - mw - pad, y: L.pauseBtn.y, w: mw, h: mw };
+      this.itemsLabel.setVisible(false);
+      for (const im of this.ladder) im.setVisible(false);
+      this.bookText.setVisible(false);
       this.versionText.setFontSize(Math.max(10, Math.round(fs * 0.45))).setPosition(pad, H - pad * 0.3);
     } else {
       const side = Math.round(Math.min(W * 0.25, H * 0.62));
@@ -182,9 +195,28 @@ class UIScene extends Phaser.Scene {
       L.pad = pad;
       L.hud = { x: 0, y: 0, w: side, h: H };
       L.cap = { x: side, y: pad, w: W - side * 2, h: H - pad * 2 };
-      const ch = Math.min((H - pad * 2 - (n - 1) * pad) / n, (side - pad * 2) * 1.8);
+      const ch = Math.min((H * 0.52 - pad * 2 - (n - 1) * pad) / n, (side - pad * 2) * 1.8);
       for (let i = 0; i < n; i++) L.cards.push({ x: W - side + pad, y: pad + i * (ch + pad), w: side - pad * 2, h: ch });
       const fs = Math.round(Math.min(side * 0.11, H * 0.05));
+      // Under the card: the merge ladder (4 + 3 grid) and the Customer Book button.
+      const px = W - side + pad, pw = side - pad * 2;
+      const lfs = Math.round(fs * 0.62);
+      const y0 = pad + n * (ch + pad) + pad * 0.5;
+      const bh = Math.round(Math.min(H * 0.1, pw * 0.26));
+      const cell = Math.max(10, Math.min(pw / 4, (H - pad * 2 - bh - y0 - lfs * 1.5) / 2));
+      this.itemsLabel.setVisible(true).setFontSize(lfs).setPosition(W - side / 2, y0);
+      const gy = y0 + lfs * 1.5;
+      L.ladder = [];
+      for (let t = 0; t < this.ladder.length; t++) {
+        const row = t < 4 ? 0 : 1, col = t < 4 ? t : t - 4, cols = row ? 3 : 4;
+        const cx = W - side / 2 + (col - (cols - 1) / 2) * cell, cy = gy + cell * (row + 0.5);
+        L.ladder.push({ x: cx, y: cy, r: cell * 0.42 });
+        this.ladder[t].setVisible(true).setPosition(cx, cy)
+          .setScale((cell * 0.42) / (this.C.bubbleRadius[t] * EraDraw.TEX_SCALE));
+      }
+      L.bookBtn = { x: px, y: gy + cell * 2 + pad * 0.6, w: pw, h: bh };
+      this.bookText.setVisible(true).setFontSize(Math.round(Math.min(bh * 0.34, pw * 0.085)))
+        .setPosition(px + bh * 0.95, L.bookBtn.y + bh / 2);
       this.titleText.setVisible(true).setFontSize(Math.round(fs * 1.4)).setPosition(side / 2, H * 0.05);
       if (this.logoImg) {
         this.titleText.setVisible(false);
@@ -205,8 +237,12 @@ class UIScene extends Phaser.Scene {
       .setWordWrapWidth(L.cap.w * 0.95).setAlign('center');
     this.stormText.setFontSize(Math.round(Math.min(W, H) * 0.03)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.2)
       .setWordWrapWidth(L.cap.w * 0.95).setAlign('center');
-    this.tutText.setFontSize(Math.round(Math.min(W, H) * 0.036)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.45)
+    this.tutText.setFontSize(Math.round(Math.min(W, H) * 0.034)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.52)
       .setWordWrapWidth(L.cap.w * 0.8);
+    const sh = Math.round(Math.max(28, Math.min(L.cap.h * 0.06, L.cap.w * 0.12)));
+    L.skipBtn = { x: L.cap.x + L.cap.w - sh * 2.6 - L.pad, y: L.cap.y + L.pad, w: sh * 2.6, h: sh };
+    this.skipText.setFontSize(Math.round(sh * 0.42)).setPosition(L.skipBtn.x + L.skipBtn.w / 2, L.skipBtn.y + sh / 2);
+    this.comboText.setFontSize(Math.round(Math.min(W, H) * 0.06)).setPosition(L.cap.x + L.cap.w / 2, L.cap.y + L.cap.h * 0.36);
     this.L = L;
     this.G.setScreenRect(L.cap);
 
@@ -229,8 +265,11 @@ class UIScene extends Phaser.Scene {
     g.fillStyle(0x1a1430, 0.55).fillRect(L.hud.x, L.hud.y, L.hud.w, L.hud.h);
     if (!L.portrait) g.fillStyle(0x1a1430, 0.55).fillRect(L.W - L.hud.w, 0, L.hud.w, L.H);
     // Shrink long scores to fit (Orbitron is wide).
+    const now = this.game.loop.time;
     this.scoreText.setText('SCORE ' + G.score);
-    this.scoreText.setScale(Math.min(1, L.scoreMaxW / this.scoreText.width));
+    const punch = 1 + 0.28 * Math.max(0, 1 - (now - G.scorePunchAt) / 240);
+    this.scoreText.setScale(Math.min(1, L.scoreMaxW / this.scoreText.width) * punch);
+    this.scoreText.setColor(punch > 1.05 ? '#ffe066' : '#ffffff');
     this.bestText.setText('BEST ' + Math.max(G.best, G.score));
     this.bestText.setScale(Math.min(1, L.scoreMaxW / this.bestText.width));
     this.nextImg.setTexture('bubble' + G.nextTier);
@@ -239,6 +278,25 @@ class UIScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 0.08).fillCircle(L.next.x, L.next.y, L.next.r * 1.1);
     this.button(g, L.pauseBtn, 0x2fb8b0);
     ICONS.pause(g, L.pauseBtn.x + L.pauseBtn.w / 2, L.pauseBtn.y + L.pauseBtn.h / 2, Math.min(L.pauseBtn.w, L.pauseBtn.h) * 0.6);
+    // Customer Book button (+ the merge ladder in landscape).
+    const bb = L.bookBtn;
+    this.button(g, bb, 0x6a3fd0);
+    ICONS.book(g, bb.x + bb.h / 2, bb.y + bb.h / 2, bb.h * 0.6);
+    if (!L.portrait) {
+      this.bookText.setText('BOOK ' + EraStorage.bookCount() + '/49');
+      const lr = L.ladder;
+      for (let t = 0; t < lr.length; t++) {
+        const got = t <= G.maxTier;
+        if (t > 0) {
+          // Little arrow from the previous item.
+          const a = lr[t - 1], b = lr[t];
+          if (a.y === b.y) g.fillStyle(0xffffff, 0.35).fillTriangle(
+            (a.x + b.x) / 2 - b.r * 0.12, b.y - b.r * 0.14, (a.x + b.x) / 2 - b.r * 0.12, b.y + b.r * 0.14, (a.x + b.x) / 2 + b.r * 0.14, b.y);
+        }
+        if (got) g.fillStyle(ERA_DATA.tierColors[t], 0.22).fillCircle(lr[t].x, lr[t].y, lr[t].r * 1.15);
+        this.ladder[t].setAlpha(got ? 1 : 0.28);
+      }
+    }
 
     // Customer cards
     const open = G.openSlots();
@@ -261,7 +319,25 @@ class UIScene extends Phaser.Scene {
       else this.toastText.setAlpha(Math.min(1, left / 300));
     }
 
+    // Big COMBO callout for 3+ quick merges.
+    const ck = (now - G.comboAt) / 900;
+    if (ck >= 0 && ck < 1 && !this.overlay) {
+      const pop = ck < 0.2 ? 0.5 + 0.7 * (ck / 0.2) : 1.2 - 0.2 * Math.min(1, (ck - 0.2) / 0.15);
+      this.comboText.setVisible(true).setText('COMBO x' + G.combo + '!').setScale(pop).setAlpha(ck < 0.7 ? 1 : (1 - ck) / 0.3);
+    } else {
+      this.comboText.setVisible(false);
+    }
+
     this.drawTutorial();
+
+    // Skip button during the tutorial.
+    const showSkip = !!G.tutorial && !this.overlay;
+    this.skipText.setVisible(showSkip);
+    if (showSkip) {
+      const r = L.skipBtn;
+      g.fillStyle(0x1a1430, 0.75).fillRoundedRect(r.x, r.y, r.w, r.h, r.h / 2);
+      g.lineStyle(Math.max(2, r.h * 0.06), 0xffffff, 0.6).strokeRoundedRect(r.x, r.y, r.w, r.h, r.h / 2);
+    }
 
     if (G.gameOver && !this.overlay) {
       this.cancelPress();
@@ -277,10 +353,10 @@ class UIScene extends Phaser.Scene {
     const cust = G.customers[0];
     const item = cust ? ERA_DATA.items[cust.tier] : '';
     const msg = {
-      drop: 'Tap inside the capsule\nto drop a bubble',
+      drop: 'Merge inventions through\ntime and serve customers\nfrom every era!\n\nTap inside the capsule\nto drop a bubble',
       merge: 'Drop another Wheel on it!\nTwo of the same merge\ninto the next item',
       serve: 'A customer wants a ' + item + '!\nDrag it onto their card',
-      line: 'Keep bubbles below\nthe red line, or the\ncapsule fills up!\n\nTap to start',
+      line: 'Keep bubbles below\nthe red line!\n\nCollect all 49 customers\nin your Customer Book.\nWatch out for Time Storms!\n\nTap to start',
     }[T.step];
     const t = this.tutText.setText(msg).setVisible(true);
     const pad = t.height * 0.18;
@@ -328,7 +404,20 @@ class UIScene extends Phaser.Scene {
 
     if (!c) {
       g.fillStyle(isOpen ? 0x2f2552 : 0x1c1733, isOpen ? 0.9 : 0.6).fillRoundedRect(r.x, r.y, r.w, r.h, rad);
-      card.avatar.setVisible(false);
+      if (isOpen) {
+        // Waiting placeholder: a dim silhouette and a hint, so the slot never looks broken.
+        const ar = Math.min(r.w, r.h) * 0.28;
+        const look = Math.floor(this.time.now / 1400) % 7;
+        const bob = Math.sin(this.time.now * 0.004) * ar * 0.05;
+        card.avatar.setVisible(true).setTexture('custlock_' + look + '_' + ((look + 3) % 7))
+          .setPosition(r.x + r.w / 2, r.y + r.h * 0.4 + bob).setDisplaySize(ar * 2, ar * 2).setAlpha(0.45);
+        card.hint.setVisible(true).setText(this.G.tutorial ? 'Customers order\nitems here!' : 'Next customer\ncoming...')
+          .setFontSize(Math.round(Math.max(10, Math.min(r.w * 0.085, r.h * 0.07))))
+          .setPosition(r.x + r.w / 2, r.y + r.h * 0.4 + ar * 1.45).setAlpha(0.6 + 0.4 * Math.sin(this.time.now * 0.005));
+      } else {
+        card.avatar.setVisible(false);
+        card.hint.setVisible(false);
+      }
       card.name.setVisible(false);
       card.speech.setVisible(false);
       card.order.setVisible(false);
@@ -379,6 +468,7 @@ class UIScene extends Phaser.Scene {
       ny = Math.max(ay + ar, oy + or) + pad * 0.6;
     }
 
+    card.hint.setVisible(false);
     card.avatar.setVisible(true).setTexture('cust_' + c.look + '_' + c.job).setPosition(ax, ay)
       .setDisplaySize(ar * 2, ar * 2).setAlpha(a);
 
@@ -445,6 +535,17 @@ class UIScene extends Phaser.Scene {
       return;
     }
     const G = this.G;
+    if (this.inRect(this.L.bookBtn, p.x, p.y)) {
+      if (!G.gameOver) { EraAudio.play('click'); this.openOverlay('book'); }
+      return;
+    }
+    // Skip the tutorial: mark it done and start a fresh run.
+    if (G.tutorial && this.inRect(this.L.skipBtn, p.x, p.y)) {
+      EraAudio.play('click');
+      EraStorage.setTutorialDone();
+      G.restartGame();
+      return;
+    }
     // Last tutorial step: any tap starts the real game.
     if (G.tutorial && G.tutorial.step === 'line') { EraAudio.play('click'); G.finishTutorial(); return; }
     if (G.gameOver || !this.inRect(this.L.cap, p.x, p.y)) return;

@@ -3,7 +3,7 @@
 // Tiers are 0-based everywhere: 0 Wheel, 1 Cart, 2 Carriage, 3 Bicycle, 4 Car, 5 Plane, 6 Rocket.
 
 window.ERA_POP_CONFIG = {
-  version: '0.1.267',
+  version: '0.1.307',
 
   // ---- Capsule (world units; the capsule is scaled to fit the screen) ----
   capsule: {
@@ -69,7 +69,7 @@ window.ERA_POP_CONFIG = {
 
   // ---- Time storms: every so often time glitches for a short burst with a twist ----
   storms: {
-    firstAtSec: 120,
+    firstAtSec: 30,                 // early first storm (always a Merge frenzy) so the hook shows in the first minute
     everySec: 150,               // gap between the end of one storm and the start of the next
     durationSec: 15,
     eraOrderMultiplier: 2,       // "Era invasion": every new customer has one era's look, orders pay x2
@@ -85,7 +85,7 @@ window.ERA_POP_CONFIG = {
     slotRamp: [
       { atSec: 0, slots: 1 },
     ],
-    firstCustomerDelayMs: 4000,
+    firstCustomerDelayMs: 2500,
     betweenOrdersMs: 5000,       // pause after a customer leaves before the next one walks in
     retryWhenFullMs: 1500,       // if every open slot is taken, try again after this
     hybridChance: 0.75,          // chance a customer is a hybrid (look era != job era)

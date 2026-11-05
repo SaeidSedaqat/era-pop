@@ -119,6 +119,17 @@ class GameScene extends Phaser.Scene {
     this.storm = null;
     this.nextStormAt = C.storms.firstAtSec;
     this.revivesUsed = 0;
+    this.stormCount = 0;
+    this.maxTier = 0;                // biggest item made this run (shown on the era ladder)
+    this.scorePunchAt = -1e9;        // game.loop.time of the last score change (HUD punch)
+    this.comboAt = -1e9;             // game.loop.time of the last combo merge (big COMBO text)
+    // Small round particle for merge sparks.
+    if (!this.textures.exists("fx_dot")) {
+      const dg = this.make.graphics({ x: 0, y: 0 }, false);
+      dg.fillStyle(0xffffff, 1).fillCircle(16, 16, 16);
+      dg.generateTexture("fx_dot", 32, 32);
+      dg.destroy();
+    }
     this.ordersServed = 0;
     this.tickAt = 0;
     this.dangerY = cap.dangerLineY;   // moves down over the run (capsule.dangerCreep)
@@ -253,6 +264,7 @@ class GameScene extends Phaser.Scene {
     const b = { tier, r, body, img, landed: !!landed, dead: false, dragging: false, aboveMs: 0, angle: 0, spin: 0 };
     body.bubble = b;
     this.bubbles.push(b);
+    if (tier > this.maxTier) this.maxTier = tier;
     return b;
   }
 
@@ -368,19 +380,24 @@ class GameScene extends Phaser.Scene {
 
       if (tier < this.C.bubbleRadius.length - 1) {
         const nb = this.spawnBubble(tier + 1, x, y, true);
-        nb.img.setScale(0.7 / EraDraw.TEX_SCALE);
-        this.tweens.add({ targets: nb.img, scale: 1 / EraDraw.TEX_SCALE, duration: 160, ease: 'Back.Out' });
+        nb.img.setScale(0.45 / EraDraw.TEX_SCALE);
+        this.tweens.add({ targets: nb.img, scale: 1 / EraDraw.TEX_SCALE, duration: 280, ease: 'Back.Out' });
         const A = this.C.audio;
         EraAudio.play('merge', { rate: (A.mergePitchBase + A.mergePitchPerTier * tier) * (1 + A.comboPitchStep * (this.combo - 1)) });
+        if (tier + 1 >= 4) EraAudio.play('reward', { volume: 0.25, rate: 1 + 0.06 * (tier - 3) });
         const pts = Math.round(S.mergePoints[tier + 1] * mult);
         this.addScore(pts);
-        this.popText(x, y, '+' + pts + comboTag, this.combo > 1 ? '#ffe066' : '#ffffff', this.combo > 1 ? 1.2 : 1);
+        this.popText(x, y, '+' + pts + comboTag, this.combo > 1 ? '#ffe066' : '#ffffff', this.combo > 1 ? 1.25 : 1);
         const size = this.C.bubbleRadius[tier + 1] * 2.6;
         this.fx('fx_pop', x, y, size, 450);
         if (this.combo > 1) this.fx('fx_stars', x, y, size * 1.2, 700);
+        this.mergeJuice(x, y, tier + 1, this.C.bubbleRadius[tier + 1]);
+        if (this.combo >= 3) this.comboAt = this.game.loop.time;
       } else {
         // Two Rockets merge and disappear.
         EraAudio.play('rocket');
+        this.cameras.main.shake(380, 0.014);
+        this.mergeJuice(x, y, tier, this.C.bubbleRadius[tier] * 1.4);
         const pts = Math.round(S.rocketPopPoints * mult);
         this.addScore(pts);
         this.popText(x, y, 'POP! +' + pts + comboTag, '#ffe066', 1.6);
@@ -431,8 +448,32 @@ class GameScene extends Phaser.Scene {
     const txt = this.add.text(x, y, str, {
       fontFamily: ERA_FONTS.title, fontStyle: '900', fontSize: Math.round(26 * s) + 'px', color,
       stroke: '#241b3d', strokeThickness: 6, resolution: 3,
-    }).setOrigin(0.5);
-    this.tweens.add({ targets: txt, y: y - 60, alpha: 0, duration: 900, ease: 'Cubic.Out', onComplete: () => txt.destroy() });
+    }).setOrigin(0.5).setDepth(50).setScale(0.4);
+    // Pop in with a bounce, hold, then float up and fade.
+    this.tweens.add({ targets: txt, scale: 1, duration: 200, ease: 'Back.Out' });
+    this.tweens.add({ targets: txt, y: y - 70, alpha: 0, delay: 250, duration: 850, ease: 'Cubic.In', onComplete: () => txt.destroy() });
+  }
+
+  // Merge juice: screen shake, coloured sparks flying out and a white flash ring.
+  mergeJuice(x, y, tier, r) {
+    this.cameras.main.shake(110 + tier * 22, 0.0018 + tier * 0.0011);
+    const col = ERA_DATA.tierColors[Math.min(tier, ERA_DATA.tierColors.length - 1)];
+    const n = 8 + Math.min(8, tier);
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+      const d = r * (1.1 + Math.random() * 0.9);
+      const dot = this.add.image(x, y, 'fx_dot').setDepth(40)
+        .setTint(i % 3 === 0 ? 0xffffff : col)
+        .setScale((r * (0.12 + Math.random() * 0.1)) / 16);
+      this.tweens.add({
+        targets: dot, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, scale: 0, alpha: 0.2,
+        duration: 380 + Math.random() * 220, ease: 'Cubic.Out', onComplete: () => dot.destroy(),
+      });
+    }
+    const ring = this.add.graphics().setDepth(39).setPosition(x, y);
+    ring.lineStyle(Math.max(3, r * 0.12), 0xffffff, 0.9).strokeCircle(0, 0, r);
+    ring.setScale(0.6);
+    this.tweens.add({ targets: ring, scale: 1.7, alpha: 0, duration: 320, ease: 'Cubic.Out', onComplete: () => ring.destroy() });
   }
 
   // One-shot effect from the effects sheet, blended additively; grows and fades out.
@@ -559,13 +600,16 @@ class GameScene extends Phaser.Scene {
       return;
     }
     if (this.elapsed < this.nextStormAt) return;
-    const type = Phaser.Utils.Array.GetRandom(['era', 'merge', 'rush']);
+    // The first storm is always a Merge frenzy so new players feel it right away.
+    const type = this.stormCount++ === 0 ? 'merge' : Phaser.Utils.Array.GetRandom(['era', 'merge', 'rush']);
     const look = Phaser.Math.Between(0, 6);
     const label = type === 'era' ? ERA_DATA.eras[look].short + ' invasion! Orders x' + ST.eraOrderMultiplier
       : type === 'merge' ? 'Merge frenzy! Merges x' + ST.mergeMultiplier
       : 'Rush hour! Orders x' + ST.rushOrderMultiplier;
     this.storm = { type, look, label, endsAt: this.elapsed + ST.durationSec };
     EraAudio.play('storm');
+    this.cameras.main.flash(350, 255, 224, 102);
+    this.cameras.main.shake(300, 0.006);
     if (type === 'rush') this.spawnTimerMs = Math.min(this.spawnTimerMs, 500);
   }
 
@@ -654,6 +698,7 @@ class GameScene extends Phaser.Scene {
 
   addScore(n) {
     this.score = Math.max(this.C.scoring.scoreFloor, this.score + n);
+    this.scorePunchAt = this.game.loop.time;
   }
 
   // ---------- Lose ----------
