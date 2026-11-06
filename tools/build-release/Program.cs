@@ -53,7 +53,7 @@ foreach (var l in libs) bundle.Append(File.ReadAllText(Path.Combine(root, l)).Tr
 bundle.Append(min.Code);
 File.WriteAllText(Path.Combine(outDir, "game.js"), bundle.ToString(), new UTF8Encoding(false));
 
-// index.html: one script tag for the game (external scripts such as the Playgama Bridge SDK stay), then minified.
+// index.html: one script tag for the game (external scripts stay), then minified.
 string relHtml = Regex.Replace(html, @"\s*<script src=""(?!https?:)[^""]+""></script>", "");
 relHtml = relHtml.Replace("</body>", $"<script src=\"game.js?v={version}\"></script>\n</body>");
 var htmlMin = Uglify.Html(relHtml, new NUglify.Html.HtmlSettings { RemoveOptionalTags = false });
@@ -77,8 +77,6 @@ void CopyDir(string from, string to)
     foreach (var d in Directory.GetDirectories(from)) CopyDir(d, Path.Combine(to, Path.GetFileName(d)));
 }
 CopyDir(Path.Combine(root, "assets"), Path.Combine(outDir, "assets"));
-// Playgama Bridge config sits next to index.html.
-File.Copy(Path.Combine(root, "playgama-bridge-config.json"), Path.Combine(outDir, "playgama-bridge-config.json"));
 
 long srcBytes = game.Sum(s => new FileInfo(Path.Combine(root, s)).Length);
 Console.WriteLine($"Era Pop v{version} -> release/");
